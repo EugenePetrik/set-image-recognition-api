@@ -53,7 +53,6 @@ A cloud-native image recognition API built with NestJS and AWS services. This ap
 git clone <repository-url>
 cd image-recognition-api
 
-```bash
 # Install dependencies
 pnpm install
 
@@ -96,6 +95,9 @@ UPLOAD_THROTTLE_LIMIT=10
 ```bash
 # Development mode with hot reload
 pnpm run start:dev
+
+# Enable debug logging
+LOG_LEVEL=debug pnpm run start:dev
 
 # Build the application
 pnpm run build
@@ -323,10 +325,3 @@ Quick deployment overview:
 2. **ECS Infrastructure**: set up Fargate cluster with Application Load Balancer
 3. **Auto Scaling**: configure automatic scaling based on CPU/memory
 4. **Monitoring**: CloudWatch alarms and logging
-
-### Debug Mode
-
-```bash
-# Enable debug logging
-LOG_LEVEL=debug pnpm run start:dev
-```
