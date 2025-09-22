@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  image-recognition-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: image-recognition-api:production
+    container_name: image-recognition-api-prod
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
+      - AWS_DYNAMODB_TABLE_NAME=${AWS_DYNAMODB_TABLE_NAME}
+      - API_VERSION=${API_VERSION:-v1}
+      - API_PREFIX=${API_PREFIX:-api}
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-5242880}
+      - ALLOWED_MIME_TYPES=${ALLOWED_MIME_TYPES:-image/jpeg,image/png,image/gif,image/webp}
+      - THROTTLE_TTL=${THROTTLE_TTL:-60}
+      - THROTTLE_LIMIT=${THROTTLE_LIMIT:-100}
+      - UPLOAD_THROTTLE_LIMIT=${UPLOAD_THROTTLE_LIMIT:-10}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - HEALTH_CHECK_TIMEOUT=${HEALTH_CHECK_TIMEOUT:-10000}
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/api/v1/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
