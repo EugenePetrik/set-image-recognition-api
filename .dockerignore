@@ -1,0 +1,98 @@
+# Dockerignore file to optimize build context
+
+# Dependencies
+node_modules
+npm-debug.log
+pnpm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Build outputs
+dist
+build
+.next
+out
+
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Test and coverage
+coverage
+.nyc_output
+jest.config.js
+**/*.test.ts
+**/*.spec.ts
+test/
+tests/
+__tests__/
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+.tmp
+.temp
+.cache
+
+# Documentation
+*.md
+docs/
+documentation/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Linting and formatting
+.eslintrc.*
+.eslintignore
+.prettierrc
+.prettierignore
+eslint.config.mjs
+
+# TypeScript config (keep tsconfig.json and tsconfig.build.json for building)
+# tsconfig.json - needed for build
+# tsconfig.build.json - needed for build
+
+# Husky and Git hooks
+.husky/
+.commitlintrc.*
+
+# Lock files (keep pnpm-lock.yaml for production builds)
+# pnpm-lock.yaml - needed for pnpm ci
+package-lock.json
+yarn.lock
+
+# Docker files (exclude to avoid recursion)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Runtime directories that may be created
+uploads/
+logs/
+tmp/
+
+# Security and secrets
+.secrets
+*.pem
+*.key
+*.crt
