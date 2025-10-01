@@ -40,6 +40,32 @@ output "sns_topic_display_name" {
   value       = aws_sns_topic.image_processing.display_name
 }
 
+# SQS Outputs
+output "sqs_queue_url" {
+  description = "URL of the SQS queue for image processing"
+  value       = aws_sqs_queue.image_processing.id
+}
+
+output "sqs_queue_arn" {
+  description = "ARN of the SQS queue"
+  value       = aws_sqs_queue.image_processing.arn
+}
+
+output "sqs_queue_name" {
+  description = "Name of the SQS queue"
+  value       = aws_sqs_queue.image_processing.name
+}
+
+output "sqs_dlq_url" {
+  description = "URL of the SQS dead letter queue"
+  value       = aws_sqs_queue.image_processing_dlq.id
+}
+
+output "sqs_dlq_arn" {
+  description = "ARN of the SQS dead letter queue"
+  value       = aws_sqs_queue.image_processing_dlq.arn
+}
+
 # General Outputs
 output "region" {
   description = "AWS region"
