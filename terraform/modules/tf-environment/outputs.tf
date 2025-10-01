@@ -109,6 +109,76 @@ output "dynamodb_table_name_env" {
   value       = aws_dynamodb_table.image_recognition_table.name
 }
 
+# Networking Outputs
+output "default_vpc_id" {
+  description = "ID of the default VPC"
+  value       = data.aws_vpc.default.id
+}
+
+output "default_vpc_cidr_block" {
+  description = "CIDR block of the default VPC"
+  value       = data.aws_vpc.default.cidr_block
+}
+
+output "default_subnet_ids" {
+  description = "List of default subnet IDs (minimum 2 AZs)"
+  value       = data.aws_subnets.default.ids
+}
+
+output "default_subnets_by_az" {
+  description = "Map of subnet IDs by availability zone"
+  value = {
+    for subnet in data.aws_subnet.default : subnet.availability_zone => subnet.id
+  }
+}
+
+# Security Group Outputs
+output "vpc_endpoints_security_group_id" {
+  description = "Security group ID for VPC endpoints"
+  value       = aws_security_group.vpc_endpoints.id
+}
+
+output "ecs_tasks_security_group_id" {
+  description = "Security group ID for ECS tasks"
+  value       = aws_security_group.ecs_tasks.id
+}
+
+output "alb_security_group_id" {
+  description = "Security group ID for Application Load Balancer"
+  value       = aws_security_group.alb.id
+}
+
+output "lambda_security_group_id" {
+  description = "Security group ID for Lambda functions"
+  value       = aws_security_group.lambda.id
+}
+
+# VPC Endpoint Outputs
+output "s3_vpc_endpoint_id" {
+  description = "ID of the S3 VPC endpoint"
+  value       = aws_vpc_endpoint.s3.id
+}
+
+output "ecr_api_vpc_endpoint_id" {
+  description = "ID of the ECR API VPC endpoint"
+  value       = aws_vpc_endpoint.ecr_api.id
+}
+
+output "ecr_dkr_vpc_endpoint_id" {
+  description = "ID of the ECR DKR VPC endpoint"
+  value       = aws_vpc_endpoint.ecr_dkr.id
+}
+
+output "dynamodb_vpc_endpoint_id" {
+  description = "ID of the DynamoDB VPC endpoint"
+  value       = aws_vpc_endpoint.dynamodb.id
+}
+
+output "logs_vpc_endpoint_id" {
+  description = "ID of the CloudWatch Logs VPC endpoint"
+  value       = aws_vpc_endpoint.logs.id
+}
+
 # General Outputs
 output "region" {
   description = "AWS region"
