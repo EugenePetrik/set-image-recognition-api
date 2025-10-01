@@ -19,6 +19,12 @@ output "s3_bucket_regional_domain_name" {
   value       = aws_s3_bucket.images_bucket.bucket_regional_domain_name
 }
 
+# Environment Variable for Application Configuration
+output "s3_bucket_name_env" {
+  description = "Environment variable value for AWS_S3_BUCKET_NAME"
+  value       = aws_s3_bucket.images_bucket.id
+}
+
 # SNS Outputs
 output "sns_topic_arn" {
   description = "ARN of the SNS topic for image processing"
