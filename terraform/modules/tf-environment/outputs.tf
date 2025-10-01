@@ -30,6 +30,16 @@ output "sns_topic_name" {
   value       = aws_sns_topic.image_processing.name
 }
 
+output "sns_topic_id" {
+  description = "ID of the SNS topic"
+  value       = aws_sns_topic.image_processing.id
+}
+
+output "sns_topic_display_name" {
+  description = "Display name of the SNS topic"
+  value       = aws_sns_topic.image_processing.display_name
+}
+
 # General Outputs
 output "region" {
   description = "AWS region"

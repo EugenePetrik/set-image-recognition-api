@@ -68,6 +68,32 @@ variable "dynamodb_write_capacity" {
   default     = 5
 }
 
+# SNS Configuration
+variable "sns_topic_name" {
+  description = "SNS topic name (will be prefixed with environment)"
+  type        = string
+  default     = "image-processing"
+}
+
+variable "sns_delivery_policy" {
+  description = "SNS delivery policy configuration"
+  type        = map(any)
+  default = {
+    http = {
+      defaultHealthyRetryPolicy = {
+        minDelayTarget     = 20
+        maxDelayTarget     = 20
+        numRetries         = 3
+        numMaxDelayRetries = 0
+        numMinDelayRetries = 0
+        numNoDelayRetries  = 0
+        backoffFunction    = "linear"
+      }
+      disableSubscriptionOverrides = false
+    }
+  }
+}
+
 # Tagging
 variable "common_tags" {
   description = "Common tags to apply to all resources"
