@@ -66,6 +66,43 @@ output "sqs_dlq_arn" {
   value       = aws_sqs_queue.image_processing_dlq.arn
 }
 
+# DynamoDB Outputs
+output "dynamodb_table_name" {
+  description = "Name of the DynamoDB table for image recognition"
+  value       = aws_dynamodb_table.image_recognition_table.name
+}
+
+output "dynamodb_table_arn" {
+  description = "ARN of the DynamoDB table for image recognition"
+  value       = aws_dynamodb_table.image_recognition_table.arn
+}
+
+output "dynamodb_table_id" {
+  description = "ID of the DynamoDB table for image recognition"
+  value       = aws_dynamodb_table.image_recognition_table.id
+}
+
+output "dynamodb_stream_arn" {
+  description = "ARN of the DynamoDB stream for image recognition table"
+  value       = aws_dynamodb_table.image_recognition_table.stream_arn
+}
+
+output "dynamodb_label_index_name" {
+  description = "Name of the LabelIndex GSI"
+  value       = "LabelIndex"
+}
+
+output "dynamodb_status_index_name" {
+  description = "Name of the StatusIndex GSI"
+  value       = "StatusIndex"
+}
+
+# Environment Variable for Application Configuration
+output "dynamodb_table_name_env" {
+  description = "Environment variable value for AWS_DYNAMODB_TABLE_NAME"
+  value       = aws_dynamodb_table.image_recognition_table.name
+}
+
 # General Outputs
 output "region" {
   description = "AWS region"
