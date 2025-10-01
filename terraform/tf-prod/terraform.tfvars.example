@@ -1,0 +1,24 @@
+# PROD Environment Configuration Template
+# Copy this file to terraform.tfvars and customize for your environment
+# IMPORTANT: This file is for production - review all settings carefully!
+
+environment  = "prod"
+aws_region   = "us-east-1"
+project_name = "image-recognition-api"
+
+# S3 Configuration
+s3_bucket_force_destroy = false  # CRITICAL: Keep false for production safety
+
+# Production-specific settings (uncomment as needed)
+# dynamodb_billing_mode = "PROVISIONED"  # Consider for predictable costs
+# dynamodb_read_capacity = 10
+# dynamodb_write_capacity = 10
+
+# Optional: Uncomment and set if you need custom values
+# aws_account_id = "your-account-id"  # Auto-detected if not set
+# common_tags = {
+#   Owner         = "production-team"
+#   Team          = "devops"
+#   CriticalLevel = "high"
+#   BackupPolicy  = "required"
+# }

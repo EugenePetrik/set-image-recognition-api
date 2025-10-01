@@ -1,0 +1,16 @@
+# QA Environment Configuration Template
+# Copy this file to terraform.tfvars and customize for your environment
+
+environment  = "qa"
+aws_region   = "us-east-1"
+project_name = "image-recognition-api"
+
+# S3 Configuration
+s3_bucket_force_destroy = false  # Conservative setting for QA
+
+# Optional: Uncomment and set if you need custom values
+# aws_account_id = "your-account-id"  # Auto-detected if not set
+# common_tags = {
+#   Owner = "your-name"
+#   Team  = "your-team"
+# }

@@ -1,0 +1,80 @@
+# tf-environment module variables
+
+variable "environment" {
+  description = "Environment name (dev, qa, prod)"
+  type        = string
+  validation {
+    condition     = contains(["dev", "qa", "prod"], var.environment)
+    error_message = "Environment must be dev, qa, or prod."
+  }
+}
+
+variable "project_name" {
+  description = "Name of the project"
+  type        = string
+  default     = "image-recognition-api"
+}
+
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "aws_account_id" {
+  description = "AWS account ID"
+  type        = string
+}
+
+# S3 Configuration
+variable "s3_bucket_force_destroy" {
+  description = "Force destroy S3 bucket even if not empty"
+  type        = bool
+  default     = true
+}
+
+variable "s3_lifecycle_enabled" {
+  description = "Enable S3 lifecycle management"
+  type        = bool
+  default     = true
+}
+
+variable "s3_versioning_enabled" {
+  description = "Enable S3 versioning"
+  type        = bool
+  default     = true
+}
+
+# DynamoDB Configuration
+variable "dynamodb_billing_mode" {
+  description = "DynamoDB billing mode"
+  type        = string
+  default     = "PAY_PER_REQUEST"
+  validation {
+    condition     = contains(["PAY_PER_REQUEST", "PROVISIONED"], var.dynamodb_billing_mode)
+    error_message = "Billing mode must be PAY_PER_REQUEST or PROVISIONED."
+  }
+}
+
+variable "dynamodb_read_capacity" {
+  description = "DynamoDB read capacity (only used if billing_mode is PROVISIONED)"
+  type        = number
+  default     = 5
+}
+
+variable "dynamodb_write_capacity" {
+  description = "DynamoDB write capacity (only used if billing_mode is PROVISIONED)"
+  type        = number
+  default     = 5
+}
+
+# Tagging
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    Project     = "image-recognition-api"
+    ManagedBy   = "terraform"
+    Module      = "tf-environment"
+  }
+}
