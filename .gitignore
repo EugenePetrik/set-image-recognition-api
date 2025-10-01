@@ -63,9 +63,10 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # Local .terraform directories
 **/.terraform/*
 
-# .tfstate files contain sensitive data and should not be committed
+# .tfstate files contain sensitive data and should not be committed (using local state)
 *.tfstate
 *.tfstate.*
+*.tfstate.backup
 
 # Crash log files
 crash.log

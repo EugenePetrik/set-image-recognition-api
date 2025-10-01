@@ -10,14 +10,14 @@ resource "aws_s3_bucket" "images_bucket" {
   })
 }
 
-# S3 Bucket Public Access Block - Security Best Practice
+# S3 Bucket Public Access Block - Allow public ACLs as required
 resource "aws_s3_bucket_public_access_block" "images_bucket_pab" {
   bucket = aws_s3_bucket.images_bucket.id
 
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+  block_public_acls       = false  # Allow public ACLs as required
+  block_public_policy     = false  # Allow public policies
+  ignore_public_acls      = false  # Don't ignore public ACLs
+  restrict_public_buckets = false  # Allow public buckets
 }
 
 # S3 Bucket Ownership Controls
@@ -31,10 +31,10 @@ resource "aws_s3_bucket_ownership_controls" "images_bucket_ownership" {
   depends_on = [aws_s3_bucket_public_access_block.images_bucket_pab]
 }
 
-# S3 Bucket ACL
+# S3 Bucket ACL - Public read access as required
 resource "aws_s3_bucket_acl" "images_bucket_acl" {
   bucket = aws_s3_bucket.images_bucket.id
-  acl    = "private"
+  acl    = "public-read"
 
   depends_on = [
     aws_s3_bucket_public_access_block.images_bucket_pab,
