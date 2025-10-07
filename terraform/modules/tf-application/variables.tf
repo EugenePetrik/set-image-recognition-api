@@ -32,6 +32,11 @@ variable "private_subnet_ids" {
   description = "Private subnet IDs from tf-environment module"
 }
 
+variable "public_subnet_ids" {
+  type        = list(string)
+  description = "Public subnet IDs from tf-environment module"
+}
+
 variable "s3_bucket_arn" {
   type        = string
   description = "S3 bucket ARN from tf-environment module"
