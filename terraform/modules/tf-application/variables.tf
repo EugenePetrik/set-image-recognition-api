@@ -80,9 +80,32 @@ variable "domain_name" {
   default     = ""
 }
 
-# ECS variables (for future implementation)
+# ECS variables
 variable "desired_count" {
   type        = number
   description = "Desired number of ECS tasks"
   default     = 2
+}
+
+variable "ecr_repository_url" {
+  type        = string
+  description = "ECR repository URL for the container image"
+}
+
+variable "container_image_tag" {
+  type        = string
+  description = "Container image tag to deploy"
+  default     = "latest"
+}
+
+variable "task_cpu" {
+  type        = number
+  description = "CPU units for the ECS task"
+  default     = 256
+}
+
+variable "task_memory" {
+  type        = number
+  description = "Memory for the ECS task"
+  default     = 512
 }
