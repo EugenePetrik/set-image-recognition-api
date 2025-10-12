@@ -19,7 +19,49 @@ variable "project_name" {
 }
 
 variable "s3_bucket_force_destroy" {
-  description = "Force destroy S3 bucket even if not empty"
+  description = "Force destroy S3 bucket even if not empty (DANGEROUS in production)"
   type        = bool
-  default     = true
+  default     = false  # Safe default for production
+}
+
+# Application-specific variables
+variable "ecr_repository_url" {
+  description = "ECR repository URL for the container image"
+  type        = string
+}
+
+variable "container_image_tag" {
+  description = "Container image tag to deploy"
+  type        = string
+  default     = "stable"
+}
+
+variable "desired_count" {
+  description = "Desired number of ECS tasks"
+  type        = number
+  default     = 3  # Higher availability for production
+}
+
+variable "task_cpu" {
+  description = "CPU units for the ECS task"
+  type        = number
+  default     = 512  # More resources for production
+}
+
+variable "task_memory" {
+  description = "Memory for the ECS task"
+  type        = number
+  default     = 1024  # More memory for production
+}
+
+variable "certificate_arn" {
+  description = "SSL certificate ARN for ALB"
+  type        = string
+  default     = ""
+}
+
+variable "domain_name" {
+  description = "Domain name for the application"
+  type        = string
+  default     = ""
 }
