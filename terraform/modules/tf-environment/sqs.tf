@@ -1,27 +1,19 @@
 # SQS Queue for Lambda processing
 resource "aws_sqs_queue" "image_processing" {
-  name = "${local.name_prefix}-image-processing"
+  name                       = "${var.project_name}-${var.environment}-image-processing"
+  visibility_timeout_seconds = 900     # 15 minutes (safe for 300s Lambda timeout)
+  message_retention_seconds  = 1209600 # 14 days
 
-  # Queue configuration
-  visibility_timeout_seconds = 60  # Lambda timeout + buffer
-  message_retention_seconds  = 1209600  # 14 days
-  max_message_size           = 262144   # 256 KB
-  delay_seconds              = 0
-  receive_wait_time_seconds  = 0
-
-  # Dead letter queue configuration
-  sqs_managed_sse_enabled = true
-
-  # Re-drive policy for failed messages
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.image_processing_dlq.arn
     maxReceiveCount     = 3
   })
 
-  tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-image-processing"
-    Type = "SQS Queue"
-  })
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-image-processing"
+    Environment = var.environment
+    Project     = var.project_name
+  }
 }
 
 # Dead Letter Queue for failed messages
@@ -29,8 +21,8 @@ resource "aws_sqs_queue" "image_processing_dlq" {
   name = "${local.name_prefix}-image-processing-dlq"
 
   # DLQ configuration
-  message_retention_seconds  = 1209600  # 14 days
-  sqs_managed_sse_enabled    = true
+  message_retention_seconds = 1209600 # 14 days
+  sqs_managed_sse_enabled   = true
 
   tags = merge(var.common_tags, {
     Name = "${local.name_prefix}-image-processing-dlq"

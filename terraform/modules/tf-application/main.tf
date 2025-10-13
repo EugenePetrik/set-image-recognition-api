@@ -14,8 +14,3 @@ terraform {
     }
   }
 }
-
-# Lambda function is defined in lambda.tf
-# ALB configuration will be added in alb.tf (future)
-# ECS configuration will be added in ecs.tf (future)
-# IAM roles will be added in iam.tf (future)

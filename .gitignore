@@ -97,3 +97,20 @@ terraform.rc
 
 # Ignore output files from terraform apply
 outputs.json
+
+# Terraform files
+**/*.tfplan
+**/*.tfstate
+**/*.tfstate.*
+**/.terraform/
+**/.terraform.lock.hcl
+
+# Environment-specific files
+**/terraform.tfvars
+!**/terraform.tfvars.example
+
+# Plan files (all variations)
+**/tfplan
+**/tfplan.*
+**/plan.out
+**/terraform.plan

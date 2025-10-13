@@ -27,6 +27,7 @@ variable "aws_account_id" {
 }
 
 # S3 Configuration
+
 variable "s3_bucket_force_destroy" {
   description = "Force destroy S3 bucket even if not empty"
   type        = bool
@@ -94,13 +95,18 @@ variable "sns_delivery_policy" {
   }
 }
 
-# Tagging
 variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
   default = {
-    Project     = "image-recognition-api"
-    ManagedBy   = "terraform"
-    Module      = "tf-environment"
+    Project   = "image-recognition-api"
+    ManagedBy = "terraform"
+    Module    = "tf-environment"
   }
+}
+
+variable "enable_deletion_protection" {
+  description = "Enable deletion protection for critical resources"
+  type        = bool
+  default     = true
 }

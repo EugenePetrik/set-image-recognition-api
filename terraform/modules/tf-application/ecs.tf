@@ -1,17 +1,14 @@
 # ECS Infrastructure Configuration
 
-# Data source for current AWS account
-data "aws_caller_identity" "current" {}
-
 # ECS Cluster
 resource "aws_ecs_cluster" "main" {
   name = "${var.project_name}-${var.environment}-cluster"
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-cluster"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-cluster"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
@@ -33,11 +30,17 @@ resource "aws_cloudwatch_log_group" "ecs_logs" {
   retention_in_days = 7
 
   tags = {
-    Name          = "/ecs/${var.project_name}-${var.environment}"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "/ecs/${var.project_name}-${var.environment}"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
+}
+
+# Add locals to get the latest image
+locals {
+  # This will force Terraform to get the latest image info
+  image_uri = "${data.aws_ecr_repository.app.repository_url}:latest"
 }
 
 # ECS Task Definition
@@ -52,8 +55,8 @@ resource "aws_ecs_task_definition" "main" {
 
   container_definitions = jsonencode([
     {
-      name      = "${var.project_name}-api"
-      image     = "${var.ecr_repository_url}:${var.container_image_tag}"
+      name = "${var.project_name}-api"
+      image     = "354583059859.dkr.ecr.us-east-1.amazonaws.com/image-recognition-api@sha256:8c84174e03528340daa919b0c3fca0141cdb3cd3af8d092584029298d41d3bc1"
       essential = true
 
       portMappings = [
@@ -66,7 +69,7 @@ resource "aws_ecs_task_definition" "main" {
       environment = [
         {
           name  = "NODE_ENV"
-          value = "production"
+          value = var.environment
         },
         {
           name  = "PORT"
@@ -86,7 +89,7 @@ resource "aws_ecs_task_definition" "main" {
         },
         {
           name  = "AWS_S3_BUCKET_NAME"
-          value = split("/", var.s3_bucket_arn)[1]  # Extract bucket name from ARN
+          value = split(":::", var.s3_bucket_arn)[1]
         },
         {
           name  = "AWS_DYNAMODB_TABLE_NAME"
@@ -130,14 +133,24 @@ resource "aws_ecs_task_definition" "main" {
           "awslogs-stream-prefix" = "ecs"
         }
       }
+
+      # Add health check for better reliability
+      healthCheck = {
+        command     = ["CMD-SHELL", "curl -f http://localhost:3000/api/v1/health || exit 1"]
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 60
+      }
     }
   ])
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-task"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-task"
+    Environment = var.environment
+    Project     = var.project_name
+    ImageDigest = "sha256:8c84174e03528340daa919b0c3fca0141cdb3cd3af8d092584029298d41d3bc1"
+    UpdatedAt   = timestamp()
   }
 }
 
@@ -154,30 +167,34 @@ resource "aws_ecs_service" "main" {
   }
 
   network_configuration {
-    subnets          = var.private_subnet_ids
-    security_groups  = [aws_security_group.ecs_tasks_sg.id]
-    assign_public_ip = true  # Required for Fargate tasks to pull images from ECR
+    security_groups  = length(var.security_group_ids) > 0 ? var.security_group_ids : [aws_security_group.ecs_tasks[0].id]
+    subnets          = length(var.private_subnet_ids) > 0 ? var.private_subnet_ids : data.aws_subnets.default.ids
+    assign_public_ip = true
   }
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.ecs_targets.arn
-    container_name   = "${var.project_name}-api"
-    container_port   = 3000
+  # Only add load balancer if target group is provided
+  dynamic "load_balancer" {
+    for_each = var.target_group_arn != null ? [1] : []
+    content {
+      target_group_arn = var.target_group_arn
+      container_name   = "${var.project_name}-api"
+      container_port   = 3000
+    }
   }
 
-  health_check_grace_period_seconds = 300
+  health_check_grace_period_seconds = var.target_group_arn != null ? 300 : 0
 
   depends_on = [
-    aws_lb_listener.http,
-    aws_iam_role_policy_attachment.ecs_task_execution_policy,
+    aws_iam_role_policy_attachment.ecs_task_execution_role_policy,
+    aws_iam_role_policy.ecs_task_execution_ecr_policy,
     aws_iam_role_policy_attachment.ecs_task_policy_attachment
   ]
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-service"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-service"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
   }
 }
 
@@ -190,10 +207,10 @@ resource "aws_appautoscaling_target" "ecs_target" {
   service_namespace  = "ecs"
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-scaling-target"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-scaling-target"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
@@ -251,10 +268,10 @@ resource "aws_cloudwatch_metric_alarm" "high_cpu" {
   }
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-high-cpu"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-high-cpu"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
@@ -275,9 +292,9 @@ resource "aws_cloudwatch_metric_alarm" "high_memory" {
   }
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-high-memory"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-high-memory"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }

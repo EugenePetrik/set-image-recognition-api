@@ -25,10 +25,10 @@ resource "aws_iam_role" "lambda_role" {
   })
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-lambda-role"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-lambda-role"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
@@ -90,10 +90,10 @@ resource "aws_iam_policy" "lambda_policy" {
   })
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-lambda-policy"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-lambda-policy"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
@@ -114,11 +114,6 @@ resource "aws_lambda_function" "image_recognition" {
   memory_size      = 512
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
-  vpc_config {
-    subnet_ids         = var.private_subnet_ids
-    security_group_ids = [var.lambda_security_group_id]
-  }
-
   environment {
     variables = {
       DYNAMODB_TABLE_NAME = var.dynamodb_table_name
@@ -132,10 +127,10 @@ resource "aws_lambda_function" "image_recognition" {
   ]
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-image-recognition"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-image-recognition"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
@@ -145,22 +140,19 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
   retention_in_days = 14
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-lambda-logs"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-lambda-logs"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
 # Lambda Event Source Mapping for SQS
 resource "aws_lambda_event_source_mapping" "sqs_trigger" {
-  event_source_arn                    = var.sqs_queue_arn
-  function_name                       = aws_lambda_function.image_recognition.arn
-  batch_size                          = 10
-  maximum_batching_window_in_seconds  = 5
+  event_source_arn                   = var.sqs_queue_arn
+  function_name                      = aws_lambda_function.image_recognition.arn
+  batch_size                         = 10
+  maximum_batching_window_in_seconds = 5
 
-  depends_on                          = [aws_lambda_function.image_recognition]
+  depends_on = [aws_lambda_function.image_recognition]
 }
-
-# Data source for current AWS account ID
-data "aws_caller_identity" "current" {}

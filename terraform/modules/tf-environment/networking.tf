@@ -1,25 +1,25 @@
-# Default VPC Data Source
+# Get default VPC
 data "aws_vpc" "default" {
   default = true
 }
 
-# Default Subnets (minimum 2 AZs)
+# Get default subnets
 data "aws_subnets" "default" {
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.default.id]
   }
-
-  filter {
-    name   = "default-for-az"
-    values = ["true"]
-  }
 }
 
-# Get subnet details for availability zone distribution
 data "aws_subnet" "default" {
   for_each = toset(data.aws_subnets.default.ids)
   id       = each.value
+}
+
+# For now, use default subnets as both public and private
+locals {
+  public_subnet_ids  = data.aws_subnets.default.ids
+  private_subnet_ids = data.aws_subnets.default.ids
 }
 
 # Security Group for VPC Endpoints
@@ -56,24 +56,24 @@ resource "aws_security_group" "vpc_endpoints" {
   }
 
   tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-vpc-endpoints-sg"
-    Type = "Security Group"
+    Name    = "${local.name_prefix}-vpc-endpoints-sg"
+    Type    = "Security Group"
     Purpose = "vpc-endpoints-access"
   })
 }
 
 # S3 VPC Endpoint (Gateway endpoint)
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id              = data.aws_vpc.default.id
-  service_name        = "com.amazonaws.${var.aws_region}.s3"
-  vpc_endpoint_type   = "Gateway"
-  route_table_ids     = data.aws_route_tables.default.ids
+  vpc_id            = data.aws_vpc.default.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = data.aws_route_tables.default.ids
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
+        Effect    = "Allow"
         Principal = "*"
         Action = [
           "s3:GetObject",
@@ -91,8 +91,8 @@ resource "aws_vpc_endpoint" "s3" {
   })
 
   tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-s3-endpoint"
-    Type = "VPC Endpoint"
+    Name    = "${local.name_prefix}-s3-endpoint"
+    Type    = "VPC Endpoint"
     Service = "S3"
   })
 }
@@ -104,11 +104,11 @@ data "aws_route_tables" "default" {
 
 # ECR API VPC Endpoint (Interface endpoint)
 resource "aws_vpc_endpoint" "ecr_api" {
-  vpc_id              = data.aws_vpc.default.id
-  service_name        = "com.amazonaws.${var.aws_region}.ecr.api"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = data.aws_subnets.default.ids
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  vpc_id             = data.aws_vpc.default.id
+  service_name       = "com.amazonaws.${var.aws_region}.ecr.api"
+  vpc_endpoint_type  = "Interface"
+  subnet_ids         = data.aws_subnets.default.ids
+  security_group_ids = [aws_security_group.vpc_endpoints.id]
 
   private_dns_enabled = true
 
@@ -116,7 +116,7 @@ resource "aws_vpc_endpoint" "ecr_api" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
+        Effect    = "Allow"
         Principal = "*"
         Action = [
           "ecr:GetAuthorizationToken",
@@ -134,19 +134,19 @@ resource "aws_vpc_endpoint" "ecr_api" {
   })
 
   tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-ecr-api-endpoint"
-    Type = "VPC Endpoint"
+    Name    = "${local.name_prefix}-ecr-api-endpoint"
+    Type    = "VPC Endpoint"
     Service = "ECR API"
   })
 }
 
 # ECR DKR VPC Endpoint (Interface endpoint)
 resource "aws_vpc_endpoint" "ecr_dkr" {
-  vpc_id              = data.aws_vpc.default.id
-  service_name        = "com.amazonaws.${var.aws_region}.ecr.dkr"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = data.aws_subnets.default.ids
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  vpc_id             = data.aws_vpc.default.id
+  service_name       = "com.amazonaws.${var.aws_region}.ecr.dkr"
+  vpc_endpoint_type  = "Interface"
+  subnet_ids         = data.aws_subnets.default.ids
+  security_group_ids = [aws_security_group.vpc_endpoints.id]
 
   private_dns_enabled = true
 
@@ -154,7 +154,7 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
+        Effect    = "Allow"
         Principal = "*"
         Action = [
           "ecr:BatchGetImage",
@@ -166,24 +166,24 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
   })
 
   tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-ecr-dkr-endpoint"
-    Type = "VPC Endpoint"
+    Name    = "${local.name_prefix}-ecr-dkr-endpoint"
+    Type    = "VPC Endpoint"
     Service = "ECR DKR"
   })
 }
 
 # DynamoDB VPC Endpoint (Gateway endpoint)
 resource "aws_vpc_endpoint" "dynamodb" {
-  vpc_id              = data.aws_vpc.default.id
-  service_name        = "com.amazonaws.${var.aws_region}.dynamodb"
-  vpc_endpoint_type   = "Gateway"
-  route_table_ids     = data.aws_route_tables.default.ids
+  vpc_id            = data.aws_vpc.default.id
+  service_name      = "com.amazonaws.${var.aws_region}.dynamodb"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = data.aws_route_tables.default.ids
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
+        Effect    = "Allow"
         Principal = "*"
         Action = [
           "dynamodb:GetItem",
@@ -210,19 +210,19 @@ resource "aws_vpc_endpoint" "dynamodb" {
   })
 
   tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-dynamodb-endpoint"
-    Type = "VPC Endpoint"
+    Name    = "${local.name_prefix}-dynamodb-endpoint"
+    Type    = "VPC Endpoint"
     Service = "DynamoDB"
   })
 }
 
 # CloudWatch Logs VPC Endpoint (Interface endpoint)
 resource "aws_vpc_endpoint" "logs" {
-  vpc_id              = data.aws_vpc.default.id
-  service_name        = "com.amazonaws.${var.aws_region}.logs"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = data.aws_subnets.default.ids
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  vpc_id             = data.aws_vpc.default.id
+  service_name       = "com.amazonaws.${var.aws_region}.logs"
+  vpc_endpoint_type  = "Interface"
+  subnet_ids         = data.aws_subnets.default.ids
+  security_group_ids = [aws_security_group.vpc_endpoints.id]
 
   private_dns_enabled = true
 
@@ -230,7 +230,7 @@ resource "aws_vpc_endpoint" "logs" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
+        Effect    = "Allow"
         Principal = "*"
         Action = [
           "logs:CreateLogGroup",
@@ -246,8 +246,8 @@ resource "aws_vpc_endpoint" "logs" {
   })
 
   tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-logs-endpoint"
-    Type = "VPC Endpoint"
+    Name    = "${local.name_prefix}-logs-endpoint"
+    Type    = "VPC Endpoint"
     Service = "CloudWatch Logs"
   })
 }
@@ -277,8 +277,8 @@ resource "aws_security_group" "ecs_tasks" {
   }
 
   tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-ecs-tasks-sg"
-    Type = "Security Group"
+    Name    = "${local.name_prefix}-ecs-tasks-sg"
+    Type    = "Security Group"
     Purpose = "ecs-tasks"
   })
 }
@@ -317,8 +317,8 @@ resource "aws_security_group" "alb" {
   }
 
   tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-alb-sg"
-    Type = "Security Group"
+    Name    = "${local.name_prefix}-alb-sg"
+    Type    = "Security Group"
     Purpose = "application-load-balancer"
   })
 }
@@ -339,8 +339,8 @@ resource "aws_security_group" "lambda" {
   }
 
   tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-lambda-sg"
-    Type = "Security Group"
+    Name    = "${local.name_prefix}-lambda-sg"
+    Type    = "Security Group"
     Purpose = "lambda-functions"
   })
 }

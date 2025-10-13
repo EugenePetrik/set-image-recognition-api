@@ -37,10 +37,10 @@ resource "aws_security_group" "alb_sg" {
   }
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-alb-sg"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-alb-sg"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
@@ -69,10 +69,10 @@ resource "aws_security_group" "ecs_tasks_sg" {
   }
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-ecs-tasks-sg"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-ecs-tasks-sg"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
@@ -84,26 +84,19 @@ resource "aws_lb" "main" {
   security_groups    = [aws_security_group.alb_sg.id]
   subnets            = var.public_subnet_ids
 
-  enable_deletion_protection = var.environment == "prod" ? true : false
-
-  # Access logs (optional - can be enabled for production)
-  # access_logs {
-  #   bucket  = aws_s3_bucket.lb_logs.bucket
-  #   prefix  = "test-lb"
-  #   enabled = true
-  # }
+  enable_deletion_protection = true
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-alb"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-alb"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
 # Target Group for ECS Tasks
 resource "aws_lb_target_group" "ecs_targets" {
-  name        = "${var.project_name}-${var.environment}-targets"
+  name        = "${substr(var.project_name, 0, 10)}-${var.environment}-tg" # Shortened name
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -126,10 +119,10 @@ resource "aws_lb_target_group" "ecs_targets" {
   deregistration_delay = 30
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-targets"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-targets"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
@@ -161,10 +154,10 @@ resource "aws_lb_listener" "http" {
   }
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-http-listener"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-http-listener"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }
 
@@ -183,9 +176,9 @@ resource "aws_lb_listener" "https" {
   }
 
   tags = {
-    Name          = "${var.project_name}-${var.environment}-https-listener"
-    Project       = var.project_name
-    Environment   = var.environment
-    ManagedBy     = "terraform"
+    Name        = "${var.project_name}-${var.environment}-https-listener"
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
   }
 }

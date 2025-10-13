@@ -132,6 +132,21 @@ output "default_subnets_by_az" {
   }
 }
 
+output "vpc_id" {
+  description = "VPC ID"
+  value       = data.aws_vpc.default.id
+}
+
+output "public_subnet_ids" {
+  description = "Public subnet IDs"
+  value       = local.public_subnet_ids
+}
+
+output "private_subnet_ids" {
+  description = "Private subnet IDs"
+  value       = local.private_subnet_ids
+}
+
 # Security Group Outputs
 output "vpc_endpoints_security_group_id" {
   description = "Security group ID for VPC endpoints"

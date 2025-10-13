@@ -2,13 +2,13 @@
 resource "aws_sns_topic" "image_processing" {
   name         = "${local.name_prefix}-${var.sns_topic_name}"
   display_name = "${title(var.environment)} Image Processing Notifications"
-  
+
   # Configure delivery policy for better reliability
   delivery_policy = jsonencode(var.sns_delivery_policy)
-  
+
   # Enable server-side encryption
   kms_master_key_id = "alias/aws/sns"
-  
+
   tags = merge(local.resource_tags, {
     Name    = "${local.name_prefix}-${var.sns_topic_name}"
     Purpose = "image-processing-notifications"
@@ -92,6 +92,25 @@ data "aws_iam_policy_document" "image_processing_policy" {
 }
 
 resource "aws_sns_topic_policy" "image_processing_policy" {
-  arn    = aws_sns_topic.image_processing.arn
-  policy = data.aws_iam_policy_document.image_processing_policy.json
+  arn = aws_sns_topic.image_processing.arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowS3ToPublish"
+        Effect = "Allow"
+        Principal = {
+          Service = "s3.amazonaws.com"
+        }
+        Action   = "sns:Publish"
+        Resource = aws_sns_topic.image_processing.arn
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      }
+    ]
+  })
 }

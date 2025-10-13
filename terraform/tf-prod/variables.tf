@@ -21,7 +21,7 @@ variable "project_name" {
 variable "s3_bucket_force_destroy" {
   description = "Force destroy S3 bucket even if not empty (DANGEROUS in production)"
   type        = bool
-  default     = false  # Safe default for production
+  default     = false
 }
 
 # Application-specific variables
@@ -39,19 +39,19 @@ variable "container_image_tag" {
 variable "desired_count" {
   description = "Desired number of ECS tasks"
   type        = number
-  default     = 3  # Higher availability for production
+  default     = 3
 }
 
 variable "task_cpu" {
   description = "CPU units for the ECS task"
   type        = number
-  default     = 512  # More resources for production
+  default     = 512
 }
 
 variable "task_memory" {
   description = "Memory for the ECS task"
   type        = number
-  default     = 1024  # More memory for production
+  default     = 1024
 }
 
 variable "certificate_arn" {

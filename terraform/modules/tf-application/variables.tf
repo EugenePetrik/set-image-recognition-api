@@ -8,7 +8,7 @@ variable "project_name" {
 variable "environment" {
   type        = string
   description = "Environment name (dev, qa, prod)"
-  
+
   validation {
     condition     = contains(["dev", "qa", "prod"], var.environment)
     error_message = "Environment must be dev, qa, or prod."
@@ -30,6 +30,7 @@ variable "vpc_id" {
 variable "private_subnet_ids" {
   type        = list(string)
   description = "Private subnet IDs from tf-environment module"
+  default     = []
 }
 
 variable "public_subnet_ids" {
@@ -90,6 +91,7 @@ variable "desired_count" {
 variable "ecr_repository_url" {
   type        = string
   description = "ECR repository URL for the container image"
+  default     = null
 }
 
 variable "container_image_tag" {
@@ -108,4 +110,16 @@ variable "task_memory" {
   type        = number
   description = "Memory for the ECS task"
   default     = 512
+}
+
+variable "target_group_arn" {
+  description = "ARN of the target group for load balancer"
+  type        = string
+  default     = null
+}
+
+variable "security_group_ids" {
+  description = "List of security group IDs for ECS service"
+  type        = list(string)
+  default     = []
 }

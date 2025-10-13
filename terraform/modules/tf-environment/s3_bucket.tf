@@ -14,10 +14,10 @@ resource "aws_s3_bucket" "images_bucket" {
 resource "aws_s3_bucket_public_access_block" "images_bucket_pab" {
   bucket = aws_s3_bucket.images_bucket.id
 
-  block_public_acls       = false  # Allow public ACLs as required
-  block_public_policy     = false  # Allow public policies
-  ignore_public_acls      = false  # Don't ignore public ACLs
-  restrict_public_buckets = false  # Allow public buckets
+  block_public_acls       = false # Allow public ACLs as required
+  block_public_policy     = false # Allow public policies
+  ignore_public_acls      = false # Don't ignore public ACLs
+  restrict_public_buckets = false # Allow public buckets
 }
 
 # S3 Bucket Ownership Controls
@@ -187,9 +187,26 @@ data "aws_iam_policy_document" "images_bucket_policy" {
 
 resource "aws_s3_bucket_policy" "images_bucket_policy" {
   bucket = aws_s3_bucket.images_bucket.id
-  policy = data.aws_iam_policy_document.images_bucket_policy.json
 
-  depends_on = [aws_s3_bucket_public_access_block.images_bucket_pab]
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = [
+            "lambda.amazonaws.com",
+            "ecs-tasks.amazonaws.com"
+          ]
+        }
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+        Resource = "${aws_s3_bucket.images_bucket.arn}/*"
+      }
+    ]
+  })
 }
 
 # S3 Bucket Notification (will be configured after SNS topic is created)
@@ -197,8 +214,8 @@ resource "aws_s3_bucket_notification" "images_bucket_notification" {
   bucket = aws_s3_bucket.images_bucket.id
 
   topic {
-    topic_arn = aws_sns_topic.image_processing.arn
-    events    = ["s3:ObjectCreated:*"]
+    topic_arn     = aws_sns_topic.image_processing.arn
+    events        = ["s3:ObjectCreated:*"]
     filter_prefix = "images/"
     filter_suffix = ""
   }
