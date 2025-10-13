@@ -16,7 +16,7 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application (no environment-specific build)
 RUN pnpm run build
 
 # Production stage
@@ -25,7 +25,7 @@ FROM --platform=linux/amd64 node:20-alpine AS production
 # Install pnpm
 RUN npm install -g pnpm
 
-# Install and curl (for health checks)
+# Install curl (for health checks)
 RUN apk add --no-cache curl
 
 # Create non-root user
@@ -51,9 +51,9 @@ USER nestjs
 # Expose port
 EXPOSE 3000
 
-# Health check
+# Environment-agnostic health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000/api/v1/health || exit 1
 
-# Start the application
+# Start the application - environment configured via env vars
 CMD ["node", "dist/main"]

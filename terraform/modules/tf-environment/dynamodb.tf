@@ -1,6 +1,6 @@
 locals {
   # Set protection based on environment name
-  enable_deletion_protection = true
+  enable_deletion_protection = false
 }
 
 # DynamoDB Table for Image Recognition
