@@ -1,0 +1,77 @@
+# TFSec Configuration for Image Recognition API
+# Comprehensive security analysis configuration
+
+# Minimum severity level to report (CRITICAL, HIGH, MEDIUM, LOW)
+minimum_severity: MEDIUM
+
+# Include ignored checks in output
+include_ignored: false
+
+# Include passed checks in output
+include_passed: false
+
+# Soft fail mode (exit with 0 even if issues found)
+soft_fail: false
+
+# Exclude specific directories
+exclude_paths:
+  - '**/.terraform/**'
+  - '**/node_modules/**'
+  - '**/.git/**'
+  - '**/tests/**'
+
+# Exclude specific files
+exclude_files:
+  - '**/*.tfvars'
+  - '**/terraform.tfstate*'
+
+# Custom check directories
+custom_check_dir: 'tfsec-checks'
+
+# Output format (default, json, csv, checkstyle, junit, sarif, gif)
+format: default
+
+# Concurrency level
+concurrency_level: 4
+
+# Configuration file locations to check
+config_file_dirs:
+  - 'terraform/'
+  - 'terraform/modules/'
+
+# Exclude specific checks (common false positives)
+exclude:
+  # CloudTrail checks - managed at account level
+  - aws-logging-no-cloudtrail-bucket
+  - aws-cloudtrail-no-cloudtrail
+
+  # GuardDuty checks - managed at organization level
+  - aws-guardduty-no-guardduty-detector
+
+  # Config checks - managed separately
+  - aws-config-configuration-recorder-not-enabled
+  - aws-config-delivery-channel-not-enabled
+
+  # VPC Flow Logs - cost optimization for dev environments
+  - aws-ec2-no-vpc-flow-logs-enabled
+
+  # ALB access logging - not required for dev
+  - aws-elb-alb-not-logging
+
+  # S3 bucket logging - excessive for image storage
+  - aws-s3-enable-bucket-logging
+
+# Include specific checks only (leave empty to include all)
+include: []
+
+# Severity overrides
+severity_overrides:
+  aws-s3-no-public-read: CRITICAL
+  aws-s3-no-public-read-write: CRITICAL
+  aws-iam-no-policy-wildcards: HIGH
+  aws-ec2-no-public-ingress-sgr: HIGH
+
+# Custom variables for checks
+vars:
+  environment: 'multi'
+  project_name: 'image-recognition-api'

@@ -1,0 +1,69 @@
+# Checkov Configuration for Image Recognition API
+# Comprehensive security scanning configuration
+
+# Framework and directory settings
+framework:
+  - terraform
+  - dockerfile
+  - secrets
+
+# Directories to scan
+directory:
+  - '.'
+
+# Output format options
+output:
+  - cli
+  - json
+  - sarif
+
+# Output file for results
+output-file-path: 'checkov-results'
+
+# Compact mode for cleaner output
+compact: true
+
+# Quiet mode (reduce verbosity)
+quiet: false
+
+# Download external modules for scanning
+download-external-modules: true
+
+# External modules directory
+external-modules-download-path: '.external_modules'
+
+# Custom policies directory
+external-checks-dir:
+  - 'checkov-policies/'
+
+# Soft fail mode (don't exit with error code)
+soft-fail: false
+
+# Hard fail on specific severities
+hard-fail-on:
+  - CRITICAL
+  - HIGH
+
+# Enable secret scanning
+enable-secret-scan-all-files: true
+
+# Repository metadata
+repo-id: 'image-recognition-api'
+branch: 'main'
+
+# Custom CA bundle (if needed)
+# ca-certificate: null
+
+# Skip specific checks
+skip-check:
+  - CKV_AWS_18 # CloudTrail - managed at account level
+  - CKV_AWS_20 # GuardDuty - managed at organization level
+  - CKV_AWS_67 # CloudTrail - managed at account level
+  - CKV_AWS_76 # VPC flow logs - cost optimization for dev
+  - CKV_AWS_91 # ALB access logging - not required for dev
+
+# Only run specific checks (empty means run all)
+check: []
+
+# Skip specific frameworks (empty means scan all)
+skip-framework: []
