@@ -1,6 +1,3 @@
-"""
-Test fixtures for Terraform outputs and configurations
-"""
 import pytest
 import os
 import json
@@ -10,32 +7,24 @@ from typing import Dict, Any, Optional
 
 @pytest.fixture(scope="session")
 def terraform_environment() -> str:
-    """Get the Terraform environment from environment variable or default to dev"""
     return os.getenv("TF_ENVIRONMENT", "dev")
 
 
 @pytest.fixture(scope="session")
 def aws_region() -> str:
-    """Get the AWS region from environment variable or default"""
     return os.getenv("AWS_REGION", "us-east-1")
 
 
 @pytest.fixture(scope="session")
 def project_name() -> str:
-    """Get the project name"""
     return "image-recognition-api"
 
 
 @pytest.fixture(scope="session")
 def terraform_outputs(terraform_environment: str) -> Dict[str, Any]:
-    """
-    Get Terraform outputs from the specified environment
-    This fixture runs terraform output command to get actual deployed resources
-    """
     terraform_dir = f"../tf-{terraform_environment}"
     
     try:
-        # Change to terraform directory and get outputs
         result = subprocess.run(
             ["terraform", "output", "-json"],
             cwd=terraform_dir,
@@ -46,7 +35,6 @@ def terraform_outputs(terraform_environment: str) -> Dict[str, Any]:
         
         outputs = json.loads(result.stdout)
         
-        # Extract values from Terraform output format
         extracted_outputs = {}
         for key, value in outputs.items():
             extracted_outputs[key] = value.get("value")
@@ -63,7 +51,6 @@ def terraform_outputs(terraform_environment: str) -> Dict[str, Any]:
 
 @pytest.fixture(scope="session")
 def expected_resource_names(terraform_environment: str, project_name: str) -> Dict[str, str]:
-    """Generate expected resource names based on naming convention"""
     return {
         "s3_bucket": f"{project_name}-{terraform_environment}-images",
         "dynamodb_table": f"{project_name}-{terraform_environment}-images",
@@ -79,7 +66,6 @@ def expected_resource_names(terraform_environment: str, project_name: str) -> Di
 
 @pytest.fixture
 def mock_terraform_outputs():
-    """Mock Terraform outputs for testing without actual infrastructure"""
     return {
         "s3_bucket_name": {
             "value": "image-recognition-api-dev-images-abc123"

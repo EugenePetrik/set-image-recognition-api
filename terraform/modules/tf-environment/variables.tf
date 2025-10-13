@@ -1,5 +1,3 @@
-# tf-environment module variables
-
 variable "environment" {
   description = "Environment name (dev, qa, prod)"
   type        = string
@@ -26,8 +24,23 @@ variable "aws_account_id" {
   type        = string
 }
 
-# S3 Configuration
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    Project   = "image-recognition-api"
+    ManagedBy = "terraform"
+    Module    = "tf-environment"
+  }
+}
 
+variable "enable_deletion_protection" {
+  description = "Enable deletion protection for critical resources"
+  type        = bool
+  default     = false
+}
+
+# S3 Configuration
 variable "s3_bucket_force_destroy" {
   description = "Force destroy S3 bucket even if not empty"
   type        = bool
@@ -93,20 +106,4 @@ variable "sns_delivery_policy" {
       disableSubscriptionOverrides = false
     }
   }
-}
-
-variable "common_tags" {
-  description = "Common tags to apply to all resources"
-  type        = map(string)
-  default = {
-    Project   = "image-recognition-api"
-    ManagedBy = "terraform"
-    Module    = "tf-environment"
-  }
-}
-
-variable "enable_deletion_protection" {
-  description = "Enable deletion protection for critical resources"
-  type        = bool
-  default     = false
 }

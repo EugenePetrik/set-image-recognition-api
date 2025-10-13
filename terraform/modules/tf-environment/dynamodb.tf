@@ -1,5 +1,4 @@
 locals {
-  # Set protection based on environment name
   enable_deletion_protection = false
 }
 
@@ -34,7 +33,7 @@ resource "aws_dynamodb_table" "image_recognition_table" {
     projection_type = "ALL"
   }
 
-  # Optional: GSI for status filtering (if you want to optimize status queries)
+  # Global Secondary Index for status filtering
   attribute {
     name = "status"
     type = "S"
@@ -56,12 +55,7 @@ resource "aws_dynamodb_table" "image_recognition_table" {
     enabled = true
   }
 
-  # Table-level settings
   deletion_protection_enabled = false
-
-  # Stream configuration for real-time processing (optional)
-  stream_enabled   = true
-  stream_view_type = "NEW_AND_OLD_IMAGES"
 
   tags = {
     Name        = "${var.project_name}-${var.environment}-table"

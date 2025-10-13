@@ -66,7 +66,7 @@ data "aws_iam_policy_document" "image_processing_policy" {
     resources = [aws_sns_topic.image_processing.arn]
   }
 
-  # Allow SQS service to subscribe (for future SQS integration)
+  # Allow SQS service to subscribe
   statement {
     sid    = "AllowSQSSubscribe"
     effect = "Allow"

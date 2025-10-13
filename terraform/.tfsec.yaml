@@ -1,7 +1,5 @@
-# TFSec Configuration for Image Recognition API
-# Comprehensive security analysis configuration
+# TFSec Configuration
 
-# Minimum severity level to report (CRITICAL, HIGH, MEDIUM, LOW)
 minimum_severity: MEDIUM
 
 # Include ignored checks in output
@@ -10,14 +8,12 @@ include_ignored: false
 # Include passed checks in output
 include_passed: false
 
-# Soft fail mode (exit with 0 even if issues found)
+# Soft fail mode
 soft_fail: false
 
 # Exclude specific directories
 exclude_paths:
   - '**/.terraform/**'
-  - '**/node_modules/**'
-  - '**/.git/**'
   - '**/tests/**'
 
 # Exclude specific files
@@ -38,40 +34,41 @@ concurrency_level: 4
 config_file_dirs:
   - 'terraform/'
   - 'terraform/modules/'
+  - 'terraform/tf-dev/'
+  - 'terraform/tf-qa/'
+  - 'terraform/tf-prod/'
 
-# Exclude specific checks (common false positives)
+# Exclude specific checks
 exclude:
-  # CloudTrail checks - managed at account level
+  # CloudTrail checks
   - aws-logging-no-cloudtrail-bucket
   - aws-cloudtrail-no-cloudtrail
 
-  # GuardDuty checks - managed at organization level
+  # GuardDuty checks
   - aws-guardduty-no-guardduty-detector
 
-  # Config checks - managed separately
+  # Config checks
   - aws-config-configuration-recorder-not-enabled
   - aws-config-delivery-channel-not-enabled
 
-  # VPC Flow Logs - cost optimization for dev environments
+  # VPC Flow Logs
   - aws-ec2-no-vpc-flow-logs-enabled
 
-  # ALB access logging - not required for dev
+  # ALB access logging
   - aws-elb-alb-not-logging
 
-  # S3 bucket logging - excessive for image storage
+  # S3 bucket logging
   - aws-s3-enable-bucket-logging
 
-# Include specific checks only (leave empty to include all)
+# Include specific checks only
 include: []
 
-# Severity overrides
 severity_overrides:
   aws-s3-no-public-read: CRITICAL
   aws-s3-no-public-read-write: CRITICAL
   aws-iam-no-policy-wildcards: HIGH
   aws-ec2-no-public-ingress-sgr: HIGH
 
-# Custom variables for checks
 vars:
   environment: 'multi'
   project_name: 'image-recognition-api'

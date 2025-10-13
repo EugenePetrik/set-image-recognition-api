@@ -12,15 +12,12 @@ terraform {
   }
 }
 
-# Configure AWS Provider
 provider "aws" {
   region = var.aws_region
 }
 
-# Get current AWS account ID
 data "aws_caller_identity" "current" {}
 
-# Call tf-environment module
 module "environment" {
   source = "../modules/tf-environment"
 
@@ -32,16 +29,13 @@ module "environment" {
   s3_bucket_force_destroy = var.s3_bucket_force_destroy
 }
 
-# Call tf-application module
 module "application" {
   source = "../modules/tf-application"
 
-  # Basic variables
   environment  = var.environment
   aws_region   = var.aws_region
   project_name = var.project_name
 
-  # Environment module outputs
   vpc_id                   = module.environment.vpc_id
   public_subnet_ids        = module.environment.public_subnet_ids
   s3_bucket_arn            = module.environment.s3_bucket_arn
@@ -50,10 +44,6 @@ module "application" {
   dynamodb_table_name      = module.environment.dynamodb_table_name
   dynamodb_table_arn       = module.environment.dynamodb_table_arn
   lambda_security_group_id = module.environment.lambda_security_group_id
-
-  # Optional networking variables
-  security_group_ids = []
-  private_subnet_ids = []
 }
 
 # Outputs

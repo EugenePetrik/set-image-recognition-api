@@ -1,3 +1,19 @@
+# General Outputs
+output "region" {
+  description = "AWS region"
+  value       = var.aws_region
+}
+
+output "environment" {
+  description = "Environment name"
+  value       = var.environment
+}
+
+output "name_prefix" {
+  description = "Common name prefix used for resources"
+  value       = local.name_prefix
+}
+
 # S3 Outputs
 output "s3_bucket_name" {
   description = "Name of the S3 bucket for image storage"
@@ -19,7 +35,6 @@ output "s3_bucket_regional_domain_name" {
   value       = aws_s3_bucket.images_bucket.bucket_regional_domain_name
 }
 
-# Environment Variable for Application Configuration
 output "s3_bucket_name_env" {
   description = "Environment variable value for AWS_S3_BUCKET_NAME"
   value       = aws_s3_bucket.images_bucket.id
@@ -103,7 +118,6 @@ output "dynamodb_status_index_name" {
   value       = "StatusIndex"
 }
 
-# Environment Variable for Application Configuration
 output "dynamodb_table_name_env" {
   description = "Environment variable value for AWS_DYNAMODB_TABLE_NAME"
   value       = aws_dynamodb_table.image_recognition_table.name
@@ -192,20 +206,4 @@ output "dynamodb_vpc_endpoint_id" {
 output "logs_vpc_endpoint_id" {
   description = "ID of the CloudWatch Logs VPC endpoint"
   value       = aws_vpc_endpoint.logs.id
-}
-
-# General Outputs
-output "region" {
-  description = "AWS region"
-  value       = var.aws_region
-}
-
-output "environment" {
-  description = "Environment name"
-  value       = var.environment
-}
-
-output "name_prefix" {
-  description = "Common name prefix used for resources"
-  value       = local.name_prefix
 }

@@ -24,7 +24,6 @@ variable "s3_bucket_force_destroy" {
   default     = true
 }
 
-# Application-specific variables
 variable "ecr_repository_url" {
   description = "ECR repository URL for the container image"
   type        = string

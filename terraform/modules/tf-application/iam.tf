@@ -1,9 +1,5 @@
 # IAM Roles and Policies for ECS Tasks
 
-# =============================================
-# ECS Task Execution Role
-# =============================================
-
 # Trust policy for ECS tasks
 data "aws_iam_policy_document" "ecs_task_execution_assume_role" {
   statement {
@@ -76,10 +72,6 @@ resource "aws_iam_role_policy" "ecs_task_execution_ecr_policy" {
     ]
   })
 }
-
-# =============================================
-# ECS Task Role (Application Permissions)
-# =============================================
 
 # ECS Task Role
 resource "aws_iam_role" "ecs_task_role" {
@@ -185,15 +177,4 @@ resource "aws_iam_policy" "ecs_task_policy" {
 resource "aws_iam_role_policy_attachment" "ecs_task_policy_attachment" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = aws_iam_policy.ecs_task_policy.arn
-}
-
-# Output role ARNs
-output "ecs_task_execution_role_arn" {
-  description = "ARN of the ECS task execution role"
-  value       = aws_iam_role.ecs_task_execution_role.arn
-}
-
-output "ecs_task_role_arn" {
-  description = "ARN of the ECS task role"
-  value       = aws_iam_role.ecs_task_role.arn
 }

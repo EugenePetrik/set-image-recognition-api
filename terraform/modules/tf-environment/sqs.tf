@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 # SQS Queue for Lambda processing
 resource "aws_sqs_queue" "image_processing" {
   name                       = "${var.project_name}-${var.environment}-image-processing"
@@ -80,16 +82,11 @@ resource "aws_sns_topic_subscription" "sqs_target" {
   protocol  = "sqs"
   endpoint  = aws_sqs_queue.image_processing.arn
 
-  # Enable raw message delivery for easier Lambda processing
   raw_message_delivery = true
 
-  # Filter policy (optional - can be used to filter specific events)
   filter_policy = jsonencode({
     eventSource = ["aws:s3"]
   })
 
   depends_on = [aws_sqs_queue_policy.image_processing_policy]
 }
-
-# Data source for current AWS account ID
-data "aws_caller_identity" "current" {}

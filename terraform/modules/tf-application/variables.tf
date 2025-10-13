@@ -1,4 +1,3 @@
-# Common variables
 variable "project_name" {
   type        = string
   description = "Name of the project"
@@ -21,7 +20,6 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-# Infrastructure variables from tf-environment module
 variable "vpc_id" {
   type        = string
   description = "VPC ID from tf-environment module"
@@ -68,7 +66,6 @@ variable "lambda_security_group_id" {
   description = "Lambda security group ID from tf-environment module"
 }
 
-# ALB variables (for future implementation)
 variable "certificate_arn" {
   type        = string
   description = "SSL certificate ARN for ALB"
@@ -81,7 +78,6 @@ variable "domain_name" {
   default     = ""
 }
 
-# ECS variables
 variable "desired_count" {
   type        = number
   description = "Desired number of ECS tasks"

@@ -96,7 +96,7 @@ resource "aws_lb" "main" {
 
 # Target Group for ECS Tasks
 resource "aws_lb_target_group" "ecs_targets" {
-  name        = "${substr(var.project_name, 0, 10)}-${var.environment}-tg" # Shortened name
+  name        = "${substr(var.project_name, 0, 10)}-${var.environment}-tg"
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = var.vpc_id

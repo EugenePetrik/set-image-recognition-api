@@ -1,6 +1,3 @@
-"""
-AWS Helper utilities for infrastructure testing
-"""
 import boto3
 import json
 import os
@@ -9,14 +6,11 @@ from botocore.exceptions import ClientError
 
 
 class AWSResourceHelper:
-    """Helper class for AWS resource validation and testing"""
-    
     def __init__(self, environment: str = "dev", region: str = "us-east-1"):
         self.environment = environment
         self.region = region
         self.project_name = "image-recognition-api"
         
-        # Initialize AWS clients
         self.s3_client = boto3.client('s3', region_name=region)
         self.dynamodb_client = boto3.client('dynamodb', region_name=region)
         self.ecs_client = boto3.client('ecs', region_name=region)
@@ -28,13 +22,11 @@ class AWSResourceHelper:
         self.ec2_client = boto3.client('ec2', region_name=region)
     
     def get_resource_name(self, resource_type: str, suffix: str = "") -> str:
-        """Generate expected resource name based on naming convention"""
         if suffix:
             return f"{self.project_name}-{self.environment}-{resource_type}-{suffix}"
         return f"{self.project_name}-{self.environment}-{resource_type}"
     
     def resource_exists(self, resource_type: str, resource_identifier: str) -> bool:
-        """Check if a resource exists in AWS"""
         try:
             if resource_type == "s3_bucket":
                 self.s3_client.head_bucket(Bucket=resource_identifier)
@@ -57,11 +49,9 @@ class AWSResourceHelper:
             return False
     
     def get_s3_bucket_config(self, bucket_name: str) -> Dict[str, Any]:
-        """Get S3 bucket configuration"""
         try:
             config = {}
-            
-            # Get bucket policy
+
             try:
                 policy_response = self.s3_client.get_bucket_policy(Bucket=bucket_name)
                 config['policy'] = json.loads(policy_response['Policy'])
@@ -70,11 +60,9 @@ class AWSResourceHelper:
                     raise
                 config['policy'] = None
             
-            # Get bucket versioning
             versioning_response = self.s3_client.get_bucket_versioning(Bucket=bucket_name)
             config['versioning'] = versioning_response.get('Status', 'Disabled')
             
-            # Get bucket encryption
             try:
                 encryption_response = self.s3_client.get_bucket_encryption(Bucket=bucket_name)
                 config['encryption'] = encryption_response['ServerSideEncryptionConfiguration']
@@ -83,7 +71,6 @@ class AWSResourceHelper:
                     raise
                 config['encryption'] = None
             
-            # Get public access block
             try:
                 pab_response = self.s3_client.get_public_access_block(Bucket=bucket_name)
                 config['public_access_block'] = pab_response['PublicAccessBlockConfiguration']
@@ -95,7 +82,6 @@ class AWSResourceHelper:
             raise Exception(f"Failed to get S3 bucket configuration: {e}")
     
     def get_dynamodb_table_config(self, table_name: str) -> Dict[str, Any]:
-        """Get DynamoDB table configuration"""
         try:
             response = self.dynamodb_client.describe_table(TableName=table_name)
             table = response['Table']
@@ -115,7 +101,6 @@ class AWSResourceHelper:
             raise Exception(f"Failed to get DynamoDB table configuration: {e}")
     
     def get_ecs_service_config(self, service_name: str, cluster_name: str) -> Dict[str, Any]:
-        """Get ECS service configuration"""
         try:
             response = self.ecs_client.describe_services(
                 cluster=cluster_name,
@@ -126,8 +111,7 @@ class AWSResourceHelper:
                 raise Exception(f"ECS service {service_name} not found in cluster {cluster_name}")
             
             service = response['services'][0]
-            
-            # Get task definition
+
             task_def_response = self.ecs_client.describe_task_definition(
                 taskDefinition=service['taskDefinition']
             )

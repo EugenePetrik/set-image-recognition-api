@@ -12,10 +12,8 @@ provider "aws" {
 
 # Local values for resource naming
 locals {
-  # Common naming convention
   name_prefix = "${var.project_name}-${var.environment}"
 
-  # Resource tags
   resource_tags = merge(var.common_tags, {
     Environment = var.environment
     Region      = var.aws_region

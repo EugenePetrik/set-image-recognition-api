@@ -78,7 +78,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "images_bucket_lifecycle" {
       prefix = "images/"
     }
 
-    # Transition to Intelligent Tiering after 0 days (immediate)
+    # Transition to Intelligent Tiering after 0 days
     transition {
       days          = 0
       storage_class = "INTELLIGENT_TIERING"
@@ -89,7 +89,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "images_bucket_lifecycle" {
       days_after_initiation = 7
     }
 
-    # Clean up old object versions (if versioning is enabled)
+    # Clean up old object versions
     dynamic "noncurrent_version_transition" {
       for_each = var.s3_versioning_enabled ? [1] : []
       content {
@@ -207,7 +207,7 @@ resource "aws_s3_bucket_policy" "images_bucket_policy" {
   })
 }
 
-# S3 Bucket Notification (will be configured after SNS topic is created)
+# S3 Bucket Notification
 resource "aws_s3_bucket_notification" "images_bucket_notification" {
   bucket = aws_s3_bucket.images_bucket.id
 

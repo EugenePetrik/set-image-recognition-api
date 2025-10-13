@@ -16,7 +16,6 @@ data "aws_subnet" "default" {
   id       = each.value
 }
 
-# For now, use default subnets as both public and private
 locals {
   public_subnet_ids  = data.aws_subnets.default.ids
   private_subnet_ids = data.aws_subnets.default.ids

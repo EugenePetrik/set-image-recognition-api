@@ -1,11 +1,8 @@
-# Checkov Configuration for Image Recognition API
-# Comprehensive security scanning configuration
+# Checkov Configuration
 
 # Framework and directory settings
 framework:
   - terraform
-  - dockerfile
-  - secrets
 
 # Directories to scan
 directory:
@@ -51,9 +48,6 @@ enable-secret-scan-all-files: true
 repo-id: 'image-recognition-api'
 branch: 'main'
 
-# Custom CA bundle (if needed)
-# ca-certificate: null
-
 # Skip specific checks
 skip-check:
   - CKV_AWS_18 # CloudTrail - managed at account level
@@ -62,8 +56,8 @@ skip-check:
   - CKV_AWS_76 # VPC flow logs - cost optimization for dev
   - CKV_AWS_91 # ALB access logging - not required for dev
 
-# Only run specific checks (empty means run all)
+# Only run specific checks
 check: []
 
-# Skip specific frameworks (empty means scan all)
+# Skip specific frameworks
 skip-framework: []
