@@ -122,21 +122,90 @@ AWS_S3_BUCKET_NAME=image-recognition-api-{env}-images-{account-id}
 AWS_DYNAMODB_TABLE_NAME=image-recognition-api-{env}-table
 ```
 
-### Getting Environment Variable Values
+## Static Code Analysis
+
+### Install TFLint
 
 ```bash
-# For DEV environment
-cd terraform/tf-dev
-echo "AWS_S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name_env)"
-echo "AWS_DYNAMODB_TABLE_NAME=$(terraform output -raw dynamodb_table_name_env)"
+# Install via Homebrew (recommended)
+brew install tflint
+# Verify installation
+tflint --version
+```
 
-# For QA environment
-cd terraform/tf-qa
-echo "AWS_S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name_env)"
-echo "AWS_DYNAMODB_TABLE_NAME=$(terraform output -raw dynamodb_table_name_env)"
+```bash
+# Via curl (if Homebrew not available)
+curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+```
 
-# For PROD environment
-cd terraform/tf-prod
-echo "AWS_S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name_env)"
-echo "AWS_DYNAMODB_TABLE_NAME=$(terraform output -raw dynamodb_table_name_env)"
+### Initialize TFLint
+
+```bash
+cd ~/terraform
+tflint --init
+
+# Verify initialization
+tflint --version
+```
+
+### Run TFLint Analysis
+
+```bash
+# Run TFLint on root directory
+tflint
+```
+
+### Install Checkov
+
+```bash
+# Install via pip
+pip3 install checkov
+
+# Or install via Homebrew
+brew install checkov
+
+# Verify installation
+checkov --version
+```
+
+### Run Checkov Analysis
+
+```bash
+# Run Checkov on root directory
+checkov --config-file .checkov.yaml
+```
+
+### Install TFSec
+
+```bash
+# Install via Homebrew (recommended)
+brew install tfsec
+
+# Or install via curl
+curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+
+# Verify installation
+tfsec --version
+```
+
+### Run TFSec Analysis
+
+```bash
+# Run TFSec on root directory
+tfsec --config-file .tfsec.yaml
+```
+
+## Testing
+
+### Install dependencies
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Run tests
+
+```bash
+pytest -v -m "unit" --cov=tests --cov-report=html
 ```
