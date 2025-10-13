@@ -83,8 +83,7 @@ resource "aws_vpc_endpoint" "s3" {
           "s3:GetBucketLocation"
         ]
         Resource = [
-          "arn:aws:s3:::${aws_s3_bucket.images_bucket.id}",
-          "arn:aws:s3:::${aws_s3_bucket.images_bucket.id}/*"
+          "*"
         ]
       }
     ]

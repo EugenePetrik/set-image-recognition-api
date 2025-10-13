@@ -135,7 +135,7 @@ data "aws_iam_policy_document" "images_bucket_policy" {
     ]
 
     resources = [
-      "${aws_s3_bucket.images_bucket.arn}/*"
+      "*"
     ]
   }
 
@@ -155,8 +155,7 @@ data "aws_iam_policy_document" "images_bucket_policy" {
     ]
 
     resources = [
-      aws_s3_bucket.images_bucket.arn,
-      "${aws_s3_bucket.images_bucket.arn}/*"
+      "*"
     ]
   }
 
@@ -173,8 +172,7 @@ data "aws_iam_policy_document" "images_bucket_policy" {
     actions = ["s3:*"]
 
     resources = [
-      aws_s3_bucket.images_bucket.arn,
-      "${aws_s3_bucket.images_bucket.arn}/*"
+      "*"
     ]
 
     condition {

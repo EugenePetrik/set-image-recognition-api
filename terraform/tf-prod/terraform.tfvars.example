@@ -1,6 +1,4 @@
 # PROD Environment Configuration Template
-# Copy this file to terraform.tfvars and customize for your environment
-# IMPORTANT: This file is for production - review all settings carefully!
 
 environment  = "prod"
 aws_region   = "us-east-1"

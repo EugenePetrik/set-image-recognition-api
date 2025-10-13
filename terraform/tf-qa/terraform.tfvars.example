@@ -1,5 +1,4 @@
 # QA Environment Configuration Template
-# Copy this file to terraform.tfvars and customize for your environment
 
 environment  = "qa"
 aws_region   = "us-east-1"

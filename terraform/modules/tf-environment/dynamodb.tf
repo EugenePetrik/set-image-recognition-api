@@ -57,7 +57,7 @@ resource "aws_dynamodb_table" "image_recognition_table" {
   }
 
   # Table-level settings
-  deletion_protection_enabled = true
+  deletion_protection_enabled = false
 
   # Stream configuration for real-time processing (optional)
   stream_enabled   = true

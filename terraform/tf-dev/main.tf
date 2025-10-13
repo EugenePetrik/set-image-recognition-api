@@ -52,7 +52,6 @@ module "application" {
   lambda_security_group_id = module.environment.lambda_security_group_id
 
   # Optional networking variables
-  target_group_arn   = null
   security_group_ids = []
   private_subnet_ids = []
 }

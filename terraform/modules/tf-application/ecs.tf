@@ -55,7 +55,7 @@ resource "aws_ecs_task_definition" "main" {
 
   container_definitions = jsonencode([
     {
-      name = "${var.project_name}-api"
+      name      = "${var.project_name}-api"
       image     = "354583059859.dkr.ecr.us-east-1.amazonaws.com/image-recognition-api@sha256:8c84174e03528340daa919b0c3fca0141cdb3cd3af8d092584029298d41d3bc1"
       essential = true
 
@@ -174,15 +174,15 @@ resource "aws_ecs_service" "main" {
 
   # Only add load balancer if target group is provided
   dynamic "load_balancer" {
-    for_each = var.target_group_arn != null ? [1] : []
+    for_each = aws_lb_target_group.ecs_targets.arn != null ? [1] : []
     content {
-      target_group_arn = var.target_group_arn
+      target_group_arn = aws_lb_target_group.ecs_targets.arn
       container_name   = "${var.project_name}-api"
       container_port   = 3000
     }
   }
 
-  health_check_grace_period_seconds = var.target_group_arn != null ? 300 : 0
+  health_check_grace_period_seconds = aws_lb_target_group.ecs_targets.arn != null ? 300 : 0
 
   depends_on = [
     aws_iam_role_policy_attachment.ecs_task_execution_role_policy,
