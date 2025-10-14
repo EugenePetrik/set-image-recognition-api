@@ -72,12 +72,6 @@ variable "certificate_arn" {
   default     = ""
 }
 
-variable "domain_name" {
-  type        = string
-  description = "Domain name for the application"
-  default     = ""
-}
-
 variable "desired_count" {
   type        = number
   description = "Desired number of ECS tasks"
@@ -106,12 +100,6 @@ variable "task_memory" {
   type        = number
   description = "Memory for the ECS task"
   default     = 512
-}
-
-variable "target_group_arn" {
-  description = "ARN of the target group for load balancer"
-  type        = string
-  default     = null
 }
 
 variable "security_group_ids" {

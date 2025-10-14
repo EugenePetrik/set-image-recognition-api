@@ -16,12 +16,14 @@ dynamodb = boto3.resource('dynamodb')
 rekognition_client = boto3.client('rekognition')
 
 # Environment variables
-DYNAMODB_TABLE = os.environ.get('DYNAMODB_TABLE_NAME')
+AWS_DYNAMODB_TABLE_NAME = os.environ.get('AWS_DYNAMODB_TABLE_NAME')
+logger.info(f"AWS_DYNAMODB_TABLE_NAME env var is {AWS_DYNAMODB_TABLE_NAME}")
 
-if not DYNAMODB_TABLE:
-    raise ValueError("DYNAMODB_TABLE_NAME environment variable is required")
+if not AWS_DYNAMODB_TABLE_NAME:
+    logger.error("AWS_DYNAMODB_TABLE_NAME environment variable is not set")
+    AWS_DYNAMODB_TABLE_NAME = "image-recognition-api-dev-table"
 
-table = dynamodb.Table(DYNAMODB_TABLE)
+table = dynamodb.Table(AWS_DYNAMODB_TABLE_NAME)
 
 def lambda_handler(event, context):
     """
@@ -29,12 +31,24 @@ def lambda_handler(event, context):
     """
     try:
         logger.info(f"Processing {len(event['Records'])} SQS records")
+        logger.info(f"Full event: {json.dumps(event)}") 
         
         # Process each SQS record
         for record in event['Records']:
-            # Parse SNS message from SQS
-            sns_message = json.loads(record['body'])
-            s3_event = json.loads(sns_message['Message'])
+            # Parse message body directly - no SNS envelope with raw delivery
+            try:
+                # Try parsing as direct S3 event (raw delivery)
+                s3_event = json.loads(record['body'])
+                logger.info("Processing message with raw delivery format")
+            except (KeyError, json.JSONDecodeError) as e:
+                # Fallback to SNS format if needed
+                try:
+                    sns_message = json.loads(record['body'])
+                    s3_event = json.loads(sns_message.get('Message', '{}'))
+                    logger.info("Processing message with SNS envelope format")
+                except (KeyError, json.JSONDecodeError):
+                    logger.error(f"Could not parse message body: {record['body'][:200]}...")
+                    continue
             
             # Process each S3 record
             for s3_record in s3_event['Records']:
@@ -80,6 +94,8 @@ def analyze_image(bucket_name, object_key):
     Analyze image using AWS Rekognition
     """
     try:
+        logger.info(f"Analyzing image with Rekognition: {bucket_name}/{object_key}")
+
         response = rekognition_client.detect_labels(
             Image={
                 'S3Object': {
@@ -116,6 +132,8 @@ def store_image_metadata(bucket_name, object_key, s3_record, labels):
         
         # Get object metadata
         s3_object = s3_record['s3']['object']
+        
+        logger.info(f"Extracted image ID: {image_id}")
         
         # Extract primary label for GSI
         primary_label = labels[0]['Name'] if labels else 'unknown'

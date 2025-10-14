@@ -34,12 +34,6 @@ variable "common_tags" {
   }
 }
 
-variable "enable_deletion_protection" {
-  description = "Enable deletion protection for critical resources"
-  type        = bool
-  default     = false
-}
-
 # S3 Configuration
 variable "s3_bucket_force_destroy" {
   description = "Force destroy S3 bucket even if not empty"
@@ -68,18 +62,6 @@ variable "dynamodb_billing_mode" {
     condition     = contains(["PAY_PER_REQUEST", "PROVISIONED"], var.dynamodb_billing_mode)
     error_message = "Billing mode must be PAY_PER_REQUEST or PROVISIONED."
   }
-}
-
-variable "dynamodb_read_capacity" {
-  description = "DynamoDB read capacity (only used if billing_mode is PROVISIONED)"
-  type        = number
-  default     = 5
-}
-
-variable "dynamodb_write_capacity" {
-  description = "DynamoDB write capacity (only used if billing_mode is PROVISIONED)"
-  type        = number
-  default     = 5
 }
 
 # SNS Configuration

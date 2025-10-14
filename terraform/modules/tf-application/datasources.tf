@@ -6,10 +6,6 @@ data "aws_region" "current" {}
 
 data "aws_partition" "current" {}
 
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
 data "aws_ecr_repository" "app" {
   name = "image-recognition-api"
 }

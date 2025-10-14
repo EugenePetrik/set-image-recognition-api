@@ -75,18 +75,3 @@ resource "aws_sqs_queue_policy" "image_processing_policy" {
     ]
   })
 }
-
-# SNS Subscription - Connect SNS Topic to SQS Queue
-resource "aws_sns_topic_subscription" "sqs_target" {
-  topic_arn = aws_sns_topic.image_processing.arn
-  protocol  = "sqs"
-  endpoint  = aws_sqs_queue.image_processing.arn
-
-  raw_message_delivery = true
-
-  filter_policy = jsonencode({
-    eventSource = ["aws:s3"]
-  })
-
-  depends_on = [aws_sqs_queue_policy.image_processing_policy]
-}

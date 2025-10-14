@@ -160,25 +160,3 @@ resource "aws_lb_listener" "http" {
     ManagedBy   = "terraform"
   }
 }
-
-# HTTPS Listener (only if certificate is provided)
-resource "aws_lb_listener" "https" {
-  count             = var.certificate_arn != "" ? 1 : 0
-  load_balancer_arn = aws_lb.main.arn
-  port              = "443"
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
-  certificate_arn   = var.certificate_arn
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.ecs_targets.arn
-  }
-
-  tags = {
-    Name        = "${var.project_name}-${var.environment}-https-listener"
-    Project     = var.project_name
-    Environment = var.environment
-    ManagedBy   = "terraform"
-  }
-}

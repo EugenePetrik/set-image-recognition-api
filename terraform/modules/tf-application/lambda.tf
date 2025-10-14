@@ -41,22 +41,62 @@ resource "aws_iam_policy" "lambda_policy" {
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "AmazonRekognitionReadOnlyAccess"
+        Effect = "Allow"
+        Action = [
+          "rekognition:CompareFaces",
+          "rekognition:DetectFaces",
+          "rekognition:DetectLabels",
+          "rekognition:ListCollections",
+          "rekognition:ListFaces",
+          "rekognition:SearchFaces",
+          "rekognition:SearchFacesByImage",
+          "rekognition:DetectText",
+          "rekognition:GetCelebrityInfo",
+          "rekognition:RecognizeCelebrities",
+          "rekognition:DetectModerationLabels",
+          "rekognition:GetLabelDetection",
+          "rekognition:GetFaceDetection",
+          "rekognition:GetContentModeration",
+          "rekognition:GetPersonTracking",
+          "rekognition:GetCelebrityRecognition",
+          "rekognition:GetFaceSearch",
+          "rekognition:GetTextDetection",
+          "rekognition:GetSegmentDetection",
+          "rekognition:DescribeStreamProcessor",
+          "rekognition:ListStreamProcessors",
+          "rekognition:DescribeProjects",
+          "rekognition:DescribeProjectVersions",
+          "rekognition:DetectCustomLabels",
+          "rekognition:DetectProtectiveEquipment",
+          "rekognition:ListTagsForResource",
+          "rekognition:ListDatasetEntries",
+          "rekognition:ListDatasetLabels",
+          "rekognition:DescribeDataset",
+          "rekognition:ListProjectPolicies",
+          "rekognition:ListUsers",
+          "rekognition:SearchUsers",
+          "rekognition:SearchUsersByImage",
+          "rekognition:GetMediaAnalysisJob",
+          "rekognition:ListMediaAnalysisJobs"
+        ]
+        Resource = "*"
+      },
+      {
         Effect = "Allow"
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.project_name}-${var.environment}-image-recognition:*"
+        Resource = "*"
       },
       {
         Effect = "Allow"
         Action = [
-          "sqs:ReceiveMessage",
-          "sqs:DeleteMessage",
-          "sqs:GetQueueAttributes"
+          "sqs:*"
         ]
-        Resource = var.sqs_queue_arn
+        Resource = "*"
       },
       {
         Effect = "Allow"
@@ -75,16 +115,12 @@ resource "aws_iam_policy" "lambda_policy" {
       {
         Effect = "Allow"
         Action = [
-          "rekognition:DetectLabels"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
           "s3:GetObject"
         ]
-        Resource = "${var.s3_bucket_arn}/*"
+        Resource = [
+          "${var.s3_bucket_arn}/*",
+          "${var.s3_bucket_arn}/"
+        ]
       }
     ]
   })
@@ -116,8 +152,8 @@ resource "aws_lambda_function" "image_recognition" {
 
   environment {
     variables = {
-      DYNAMODB_TABLE_NAME = var.dynamodb_table_name
-      LOG_LEVEL           = "INFO"
+      AWS_DYNAMODB_TABLE_NAME = var.dynamodb_table_name
+      LOG_LEVEL               = "INFO"
     }
   }
 

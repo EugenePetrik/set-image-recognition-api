@@ -12,18 +12,6 @@ resource "aws_ecs_cluster" "main" {
   }
 }
 
-# ECS Cluster Capacity Providers
-resource "aws_ecs_cluster_capacity_providers" "main" {
-  cluster_name = aws_ecs_cluster.main.name
-
-  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
-
-  default_capacity_provider_strategy {
-    capacity_provider = "FARGATE_SPOT"
-    weight            = 1
-  }
-}
-
 # CloudWatch Log Group for ECS
 resource "aws_cloudwatch_log_group" "ecs_logs" {
   name              = "/ecs/${var.project_name}-${var.environment}"
@@ -208,91 +196,6 @@ resource "aws_appautoscaling_target" "ecs_target" {
 
   tags = {
     Name        = "${var.project_name}-${var.environment}-scaling-target"
-    Project     = var.project_name
-    Environment = var.environment
-    ManagedBy   = "terraform"
-  }
-}
-
-# CPU-based Auto Scaling Policy
-resource "aws_appautoscaling_policy" "ecs_cpu_policy" {
-  name               = "${var.project_name}-${var.environment}-cpu-scaling"
-  policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.ecs_target.resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs_target.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs_target.service_namespace
-
-  target_tracking_scaling_policy_configuration {
-    predefined_metric_specification {
-      predefined_metric_type = "ECSServiceAverageCPUUtilization"
-    }
-    target_value       = 70.0
-    scale_out_cooldown = 300
-    scale_in_cooldown  = 300
-  }
-}
-
-# Memory-based Auto Scaling Policy
-resource "aws_appautoscaling_policy" "ecs_memory_policy" {
-  name               = "${var.project_name}-${var.environment}-memory-scaling"
-  policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.ecs_target.resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs_target.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs_target.service_namespace
-
-  target_tracking_scaling_policy_configuration {
-    predefined_metric_specification {
-      predefined_metric_type = "ECSServiceAverageMemoryUtilization"
-    }
-    target_value       = 80.0
-    scale_out_cooldown = 300
-    scale_in_cooldown  = 300
-  }
-}
-
-# CloudWatch Alarms for monitoring
-resource "aws_cloudwatch_metric_alarm" "high_cpu" {
-  alarm_name          = "${var.project_name}-${var.environment}-high-cpu"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/ECS"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "80"
-  alarm_description   = "This metric monitors ECS CPU utilization"
-
-  dimensions = {
-    ServiceName = aws_ecs_service.main.name
-    ClusterName = aws_ecs_cluster.main.name
-  }
-
-  tags = {
-    Name        = "${var.project_name}-${var.environment}-high-cpu"
-    Project     = var.project_name
-    Environment = var.environment
-    ManagedBy   = "terraform"
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "high_memory" {
-  alarm_name          = "${var.project_name}-${var.environment}-high-memory"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "MemoryUtilization"
-  namespace           = "AWS/ECS"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "80"
-  alarm_description   = "This metric monitors ECS memory utilization"
-
-  dimensions = {
-    ServiceName = aws_ecs_service.main.name
-    ClusterName = aws_ecs_cluster.main.name
-  }
-
-  tags = {
-    Name        = "${var.project_name}-${var.environment}-high-memory"
     Project     = var.project_name
     Environment = var.environment
     ManagedBy   = "terraform"
