@@ -18,35 +18,40 @@ class TestDynamoDBTable:
         assert len(terraform_outputs["dynamodb_table_name"]) > 0
         
     @mock_dynamodb
-    def test_dynamodb_table_schema(self, terraform_environment, aws_region):
+    def test_dynamodb_table_schema(self, terraform_environment, aws_region, expected_resource_names):
         dynamodb_client = boto3.client('dynamodb', region_name=aws_region)
         helper = AWSResourceHelper(environment=terraform_environment, region=aws_region)
+
+        table_name = expected_resource_names["dynamodb_table"]
         
-        table_name = f"image-recognition-api-{terraform_environment}-images"
-        
-        dynamodb_client.create_table(
-            TableName=table_name,
-            KeySchema=[
-                {"AttributeName": "ImageId", "KeyType": "HASH"},
-                {"AttributeName": "CreatedAt", "KeyType": "RANGE"}
-            ],
-            AttributeDefinitions=[
-                {"AttributeName": "ImageId", "AttributeType": "S"},
-                {"AttributeName": "CreatedAt", "AttributeType": "S"},
-                {"AttributeName": "Labels", "AttributeType": "S"}
-            ],
-            BillingMode='PAY_PER_REQUEST',
-            GlobalSecondaryIndexes=[
-                {
-                    'IndexName': 'Labels-CreatedAt-index',
-                    'KeySchema': [
-                        {"AttributeName": "Labels", "KeyType": "HASH"},
-                        {"AttributeName": "CreatedAt", "KeyType": "RANGE"}
-                    ],
-                    'Projection': {'ProjectionType': 'ALL'}
-                }
-            ]
-        )
+        # Create table matching expected Terraform configuration
+        try:
+            dynamodb_client.create_table(
+                TableName=table_name,
+                KeySchema=[
+                    {"AttributeName": "ImageId", "KeyType": "HASH"},
+                    {"AttributeName": "CreatedAt", "KeyType": "RANGE"}
+                ],
+                AttributeDefinitions=[
+                    {"AttributeName": "ImageId", "AttributeType": "S"},
+                    {"AttributeName": "CreatedAt", "AttributeType": "S"},
+                    {"AttributeName": "LabelValue", "AttributeType": "S"}
+                ],
+                BillingMode='PAY_PER_REQUEST',
+                GlobalSecondaryIndexes=[
+                    {
+                        'IndexName': 'LabelValue-CreatedAt-index',
+                        'KeySchema': [
+                            {"AttributeName": "LabelValue", "KeyType": "HASH"},
+                            {"AttributeName": "CreatedAt", "KeyType": "RANGE"}
+                        ],
+                        'Projection': {'ProjectionType': 'ALL'}
+                    }
+                ]
+            )
+        except dynamodb_client.exceptions.ResourceInUseException:
+            # Table already exists
+            pass
 
         assert helper.resource_exists("dynamodb_table", table_name)
         
@@ -70,14 +75,17 @@ class TestDynamoDBTable:
         
     def test_dynamodb_gsi_configuration(self):
         expected_gsi = {
-            "IndexName": "Labels-CreatedAt-index",
+            "IndexName": "LabelValue-CreatedAt-index",
             "KeySchema": [
-                {"AttributeName": "Labels", "KeyType": "HASH"},
+                {"AttributeName": "LabelValue", "KeyType": "HASH"},
                 {"AttributeName": "CreatedAt", "KeyType": "RANGE"}
             ],
             "ProjectionType": "ALL"
         }
 
-        assert "Labels-CreatedAt-index" in expected_gsi["IndexName"]
+        assert "LabelValue-CreatedAt" in expected_gsi["IndexName"]
+
+        assert expected_gsi["ProjectionType"] == "ALL"
+        assert len(expected_gsi["KeySchema"]) == 2
         assert len(expected_gsi["KeySchema"]) == 2
         assert expected_gsi["ProjectionType"] == "ALL"

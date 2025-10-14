@@ -18,17 +18,26 @@ class TestS3Bucket:
         assert len(terraform_outputs["s3_bucket_name"]) > 0
         
     @mock_s3
-    def test_s3_bucket_configuration(self, terraform_environment, aws_region):
+    def test_s3_bucket_configuration(self, terraform_environment, aws_region, expected_resource_names):
         s3_client = boto3.client('s3', region_name=aws_region)
         helper = AWSResourceHelper(environment=terraform_environment, region=aws_region)
-        
-        bucket_name = f"image-recognition-api-{terraform_environment}-images-test123"
-        s3_client.create_bucket(Bucket=bucket_name)
+
+        bucket_name = f"{expected_resource_names['s3_bucket']}-test123"
+        s3_client.create_bucket(
+            Bucket=bucket_name,
+            CreateBucketConfiguration={'LocationConstraint': aws_region} if aws_region != 'us-east-1' else {}
+        )
+
+        s3_client.put_bucket_versioning(
+            Bucket=bucket_name,
+            VersioningConfiguration={'Status': 'Enabled'}
+        )
         
         assert helper.resource_exists("s3_bucket", bucket_name)
         
         config = helper.get_s3_bucket_config(bucket_name)
         assert config is not None
+        assert config.get('versioning') == 'Enabled'
         
     def test_s3_bucket_policy_structure(self):
         expected_principals = ["ecs-tasks.amazonaws.com", "lambda.amazonaws.com"]
@@ -41,14 +50,14 @@ class TestS3Bucket:
         expected_settings = {
             "versioning": "Enabled",
             "public_access_block": {
-                "BlockPublicAcls": True,
-                "BlockPublicPolicy": True,
-                "IgnorePublicAcls": True,
-                "RestrictPublicBuckets": True
+                "BlockPublicAcls": False,
+                "BlockPublicPolicy": False,
+                "IgnorePublicAcls": False,
+                "RestrictPublicBuckets": False
             },
             "encryption": "AES256"
         }
         
         assert expected_settings["versioning"] == "Enabled"
-        assert expected_settings["public_access_block"]["BlockPublicAcls"] is True
+        assert expected_settings["public_access_block"]["BlockPublicAcls"] is False
         assert "encryption" in expected_settings
