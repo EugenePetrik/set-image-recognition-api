@@ -14,9 +14,8 @@ provider "aws" {
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
 
-  resource_tags = merge(var.common_tags, {
+  common_tags = {
+    Project     = var.project_name
     Environment = var.environment
-    Region      = var.aws_region
-    AccountId   = var.aws_account_id
-  })
+  }
 }

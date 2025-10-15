@@ -1,12 +1,12 @@
 variable "project_name" {
   type        = string
-  description = "Name of the project"
+  description = "Project name used for resource naming"
   default     = "image-recognition"
 }
 
 variable "environment" {
   type        = string
-  description = "Environment name (dev, qa, prod)"
+  description = "Deployment environment (dev, qa, prod)"
 
   validation {
     condition     = contains(["dev", "qa", "prod"], var.environment)

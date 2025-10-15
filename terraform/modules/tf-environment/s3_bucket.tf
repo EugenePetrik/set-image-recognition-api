@@ -1,6 +1,6 @@
 # S3 Bucket for image storage
 resource "aws_s3_bucket" "images_bucket" {
-  bucket        = "${var.project_name}-${var.environment}-images-${var.aws_account_id}"
+  bucket        = "${var.project_name}-${var.environment}-images-${data.aws_caller_identity.current.account_id}"
   force_destroy = var.s3_bucket_force_destroy
 
   tags = merge(var.common_tags, {
@@ -12,12 +12,17 @@ resource "aws_s3_bucket" "images_bucket" {
 
 resource "aws_s3_bucket_notification" "bucket_notification" {
   bucket = aws_s3_bucket.images_bucket.id
+
   topic {
     topic_arn     = aws_sns_topic.image_processing.arn
     events        = ["s3:ObjectCreated:*"]
     filter_prefix = "images/"
   }
-  depends_on = [aws_s3_bucket.images_bucket]
+
+  depends_on = [
+    aws_s3_bucket.images_bucket,
+    aws_sns_topic_policy.image_processing_policy
+  ]
 }
 
 # S3 Bucket Public Access Block - Allow public ACLs as required

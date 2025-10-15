@@ -1,5 +1,5 @@
 variable "environment" {
-  description = "Environment name (dev, qa, prod)"
+  description = "Deployment environment (dev, qa, prod)"
   type        = string
   validation {
     condition     = contains(["dev", "qa", "prod"], var.environment)
@@ -8,7 +8,7 @@ variable "environment" {
 }
 
 variable "project_name" {
-  description = "Name of the project"
+  description = "Project name used for resource naming"
   type        = string
   default     = "image-recognition-api"
 }
@@ -19,18 +19,12 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "aws_account_id" {
-  description = "AWS account ID"
-  type        = string
-}
-
 variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
   default = {
-    Project   = "image-recognition-api"
-    ManagedBy = "terraform"
-    Module    = "tf-environment"
+    Project     = "image-recognition-api"
+    Environment = "tf-environment"
   }
 }
 

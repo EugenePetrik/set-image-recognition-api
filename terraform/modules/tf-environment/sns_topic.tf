@@ -5,7 +5,7 @@ resource "aws_sns_topic" "image_processing" {
   # Configure delivery policy for better reliability
   delivery_policy = jsonencode(var.sns_delivery_policy)
 
-  tags = merge(local.resource_tags, {
+  tags = merge(local.common_tags, {
     Name    = "${local.name_prefix}-${var.sns_topic_name}"
     Purpose = "image-processing-notifications"
     Type    = "notification"
@@ -26,8 +26,11 @@ resource "aws_sns_topic_policy" "image_processing_policy" {
         Action   = "SNS:Publish"
         Resource = aws_sns_topic.image_processing.arn
         Condition = {
-          ArnEquals = {
+          ArnLike = {
             "aws:SourceArn" = aws_s3_bucket.images_bucket.arn
+          }
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
           }
         }
       }

@@ -28,7 +28,6 @@ resource "aws_security_group" "alb_sg" {
     Name        = "${var.project_name}-${var.environment}-alb-sg"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }
 
@@ -60,7 +59,6 @@ resource "aws_security_group" "ecs_tasks_sg" {
     Name        = "${var.project_name}-${var.environment}-ecs-tasks-sg"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }
 
@@ -78,7 +76,6 @@ resource "aws_lb" "main" {
     Name        = "${var.project_name}-${var.environment}-alb"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }
 
@@ -109,7 +106,6 @@ resource "aws_lb_target_group" "ecs_targets" {
     Name        = "${var.project_name}-${var.environment}-targets"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }
 
@@ -129,6 +125,5 @@ resource "aws_lb_listener" "http" {
     Name        = "${var.project_name}-${var.environment}-http-listener"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }

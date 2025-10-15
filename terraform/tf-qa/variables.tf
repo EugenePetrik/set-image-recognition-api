@@ -1,5 +1,5 @@
 variable "environment" {
-  description = "Environment name"
+  description = "Deployment environment (dev, qa, prod)"
   type        = string
   default     = "qa"
 }
@@ -11,7 +11,7 @@ variable "aws_region" {
 }
 
 variable "project_name" {
-  description = "Name of the project"
+  description = "Project name used for resource naming"
   type        = string
   default     = "image-recognition-api"
 }

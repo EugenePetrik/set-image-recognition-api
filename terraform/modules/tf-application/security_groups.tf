@@ -5,23 +5,22 @@ resource "aws_security_group" "ecs_tasks" {
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
-    protocol    = "tcp"
-    from_port   = 3000
-    to_port     = 3000
-    security_groups = [aws_security_group.alb_sg.id]
+    protocol        = "tcp"
+    from_port       = 3000
+    to_port         = 3000
+    security_groups = [aws_security_group.alb_sg.id] # Fixed reference
   }
 
   egress {
-    protocol         = "-1"
-    from_port        = 0
-    to_port          = 0
-    cidr_blocks      = ["0.0.0.0/0"]
-    security_groups = [aws_security_group.alb_sg.id]
+    protocol    = "-1"
+    from_port   = 0
+    to_port     = 0
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = {
     Name        = "${var.project_name}-${var.environment}-ecs-tasks"
-    Environment = var.environment
     Project     = var.project_name
+    Environment = var.environment
   }
 }

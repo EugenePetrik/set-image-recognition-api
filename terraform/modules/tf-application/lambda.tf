@@ -28,7 +28,6 @@ resource "aws_iam_role" "lambda_role" {
     Name        = "${var.project_name}-${var.environment}-lambda-role"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }
 
@@ -40,87 +39,62 @@ resource "aws_iam_policy" "lambda_policy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      # Rekognition
       {
-        Sid    = "AmazonRekognitionReadOnlyAccess"
+        Sid    = "RekognitionDetectLabels"
         Effect = "Allow"
         Action = [
-          "rekognition:CompareFaces",
-          "rekognition:DetectFaces",
-          "rekognition:DetectLabels",
-          "rekognition:ListCollections",
-          "rekognition:ListFaces",
-          "rekognition:SearchFaces",
-          "rekognition:SearchFacesByImage",
-          "rekognition:DetectText",
-          "rekognition:GetCelebrityInfo",
-          "rekognition:RecognizeCelebrities",
-          "rekognition:DetectModerationLabels",
-          "rekognition:GetLabelDetection",
-          "rekognition:GetFaceDetection",
-          "rekognition:GetContentModeration",
-          "rekognition:GetPersonTracking",
-          "rekognition:GetCelebrityRecognition",
-          "rekognition:GetFaceSearch",
-          "rekognition:GetTextDetection",
-          "rekognition:GetSegmentDetection",
-          "rekognition:DescribeStreamProcessor",
-          "rekognition:ListStreamProcessors",
-          "rekognition:DescribeProjects",
-          "rekognition:DescribeProjectVersions",
-          "rekognition:DetectCustomLabels",
-          "rekognition:DetectProtectiveEquipment",
-          "rekognition:ListTagsForResource",
-          "rekognition:ListDatasetEntries",
-          "rekognition:ListDatasetLabels",
-          "rekognition:DescribeDataset",
-          "rekognition:ListProjectPolicies",
-          "rekognition:ListUsers",
-          "rekognition:SearchUsers",
-          "rekognition:SearchUsersByImage",
-          "rekognition:GetMediaAnalysisJob",
-          "rekognition:ListMediaAnalysisJobs"
+          "rekognition:DetectLabels"
         ]
         Resource = "*"
       },
+      # CloudWatch Logs - Using data sources
       {
+        Sid    = "CloudWatchLogsAccess"
         Effect = "Allow"
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.project_name}-${var.environment}-image-recognition",
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.project_name}-${var.environment}-image-recognition:*"
+        ]
       },
+      # SQS
       {
+        Sid    = "SQSQueueAccess"
         Effect = "Allow"
         Action = [
-          "sqs:*"
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes"
         ]
-        Resource = "*"
+        Resource = var.sqs_queue_arn
       },
+      # DynamoDB
       {
+        Sid    = "DynamoDBAccess"
         Effect = "Allow"
         Action = [
           "dynamodb:PutItem",
           "dynamodb:UpdateItem",
-          "dynamodb:GetItem",
-          "dynamodb:Query",
-          "dynamodb:Scan"
+          "dynamodb:GetItem"
         ]
         Resource = [
           var.dynamodb_table_arn,
           "${var.dynamodb_table_arn}/index/*"
         ]
       },
+      # S3
       {
+        Sid    = "S3BucketAccess"
         Effect = "Allow"
         Action = [
           "s3:GetObject"
         ]
-        Resource = [
-          "${var.s3_bucket_arn}/*",
-          "${var.s3_bucket_arn}/"
-        ]
+        Resource = "${var.s3_bucket_arn}/*"
       }
     ]
   })
@@ -166,7 +140,6 @@ resource "aws_lambda_function" "image_recognition" {
     Name        = "${var.project_name}-${var.environment}-image-recognition"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }
 
@@ -179,7 +152,6 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
     Name        = "${var.project_name}-${var.environment}-lambda-logs"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }
 

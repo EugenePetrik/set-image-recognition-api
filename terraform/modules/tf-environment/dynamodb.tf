@@ -59,7 +59,7 @@ resource "aws_dynamodb_table" "image_recognition_table" {
 
   tags = {
     Name        = "${var.project_name}-${var.environment}-table"
-    Environment = var.environment
     Project     = var.project_name
+    Environment = var.environment
   }
 }

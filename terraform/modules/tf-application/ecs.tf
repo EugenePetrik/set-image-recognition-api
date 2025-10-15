@@ -8,7 +8,6 @@ resource "aws_ecs_cluster" "main" {
     Name        = "${var.project_name}-${var.environment}-cluster"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }
 
@@ -21,7 +20,6 @@ resource "aws_cloudwatch_log_group" "ecs_logs" {
     Name        = "/ecs/${var.project_name}-${var.environment}"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }
 
@@ -44,7 +42,7 @@ resource "aws_ecs_task_definition" "main" {
   container_definitions = jsonencode([
     {
       name      = "${var.project_name}-api"
-      image     = "354583059859.dkr.ecr.us-east-1.amazonaws.com/image-recognition-api@sha256:8c84174e03528340daa919b0c3fca0141cdb3cd3af8d092584029298d41d3bc1"
+      image     = "${data.aws_ecr_repository.app.repository_url}:latest"
       essential = true
 
       portMappings = [
@@ -73,7 +71,7 @@ resource "aws_ecs_task_definition" "main" {
         },
         {
           name  = "AWS_REGION"
-          value = var.aws_region
+          value = data.aws_region.current.name
         },
         {
           name  = "AWS_S3_BUCKET_NAME"
@@ -117,12 +115,11 @@ resource "aws_ecs_task_definition" "main" {
         logDriver = "awslogs"
         options = {
           "awslogs-group"         = aws_cloudwatch_log_group.ecs_logs.name
-          "awslogs-region"        = var.aws_region
+          "awslogs-region"        = data.aws_region.current.name
           "awslogs-stream-prefix" = "ecs"
         }
       }
 
-      # Add health check for better reliability
       healthCheck = {
         command     = ["CMD-SHELL", "curl -f http://localhost:3000/api/v1/health || exit 1"]
         interval    = 30
@@ -135,10 +132,8 @@ resource "aws_ecs_task_definition" "main" {
 
   tags = {
     Name        = "${var.project_name}-${var.environment}-task"
-    Environment = var.environment
     Project     = var.project_name
-    ImageDigest = "sha256:8c84174e03528340daa919b0c3fca0141cdb3cd3af8d092584029298d41d3bc1"
-    UpdatedAt   = timestamp()
+    Environment = var.environment
   }
 }
 
@@ -180,9 +175,8 @@ resource "aws_ecs_service" "main" {
 
   tags = {
     Name        = "${var.project_name}-${var.environment}-service"
-    Environment = var.environment
     Project     = var.project_name
-    ManagedBy   = "terraform"
+    Environment = var.environment
   }
 }
 
@@ -198,6 +192,5 @@ resource "aws_appautoscaling_target" "ecs_target" {
     Name        = "${var.project_name}-${var.environment}-scaling-target"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }

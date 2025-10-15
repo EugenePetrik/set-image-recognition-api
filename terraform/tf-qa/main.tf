@@ -16,15 +16,12 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "aws_caller_identity" "current" {}
-
 module "environment" {
   source = "../modules/tf-environment"
 
-  environment    = var.environment
-  aws_region     = var.aws_region
-  project_name   = var.project_name
-  aws_account_id = data.aws_caller_identity.current.account_id
+  environment  = var.environment
+  aws_region   = var.aws_region
+  project_name = var.project_name
 
   s3_bucket_force_destroy = var.s3_bucket_force_destroy
 }

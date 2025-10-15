@@ -31,8 +31,8 @@ resource "aws_iam_role" "ecs_task_execution_role" {
 
   tags = {
     Name        = "${var.project_name}-${var.environment}-ecs-execution-role"
-    Environment = var.environment
     Project     = var.project_name
+    Environment = var.environment
   }
 }
 
@@ -82,7 +82,6 @@ resource "aws_iam_role" "ecs_task_role" {
     Name        = "${var.project_name}-${var.environment}-task-role"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }
 
@@ -169,7 +168,6 @@ resource "aws_iam_policy" "ecs_task_policy" {
     Name        = "${var.project_name}-${var.environment}-task-policy"
     Project     = var.project_name
     Environment = var.environment
-    ManagedBy   = "terraform"
   }
 }
 

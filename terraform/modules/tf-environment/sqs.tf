@@ -3,8 +3,11 @@ data "aws_caller_identity" "current" {}
 # SQS Queue for Lambda processing
 resource "aws_sqs_queue" "image_processing" {
   name                       = "${var.project_name}-${var.environment}-image-processing"
-  visibility_timeout_seconds = 900     # 15 minutes (safe for 300s Lambda timeout)
-  message_retention_seconds  = 1209600 # 14 days
+  visibility_timeout_seconds = 900
+  message_retention_seconds  = 1209600
+
+  # Add SQS encryption
+  sqs_managed_sse_enabled = true
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.image_processing_dlq.arn
@@ -13,8 +16,8 @@ resource "aws_sqs_queue" "image_processing" {
 
   tags = {
     Name        = "${var.project_name}-${var.environment}-image-processing"
-    Environment = var.environment
     Project     = var.project_name
+    Environment = var.environment
   }
 }
 
@@ -38,10 +41,8 @@ resource "aws_sqs_queue_policy" "image_processing_policy" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Id      = "${local.name_prefix}-sqs-policy"
     Statement = [
       {
-        Sid    = "AllowSNSPublish"
         Effect = "Allow"
         Principal = {
           Service = "sns.amazonaws.com"
@@ -55,7 +56,6 @@ resource "aws_sqs_queue_policy" "image_processing_policy" {
         }
       },
       {
-        Sid    = "AllowLambdaAccess"
         Effect = "Allow"
         Principal = {
           AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"

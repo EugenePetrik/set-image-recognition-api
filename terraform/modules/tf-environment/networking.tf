@@ -27,7 +27,7 @@ resource "aws_security_group" "vpc_endpoints" {
   description = "Security group for VPC endpoints"
   vpc_id      = data.aws_vpc.default.id
 
-  # Allow HTTPS traffic from VPC
+  # Allow HTTPS traffic from VPC (VPC endpoints use HTTPS)
   ingress {
     description = "HTTPS from VPC"
     from_port   = 443
@@ -36,22 +36,13 @@ resource "aws_security_group" "vpc_endpoints" {
     cidr_blocks = [data.aws_vpc.default.cidr_block]
   }
 
-  # Allow HTTP traffic from VPC
-  ingress {
-    description = "HTTP from VPC"
-    from_port   = 80
-    to_port     = 80
+  # Restrict outbound traffic
+  egress {
+    description = "HTTPS outbound"
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = [data.aws_vpc.default.cidr_block]
-  }
-
-  # Allow all outbound traffic
-  egress {
-    description = "All outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = merge(var.common_tags, {
@@ -238,7 +229,7 @@ resource "aws_vpc_endpoint" "logs" {
           "logs:DescribeLogStreams",
           "logs:PutRetentionPolicy"
         ]
-        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
       }
     ]
   })
@@ -247,37 +238,6 @@ resource "aws_vpc_endpoint" "logs" {
     Name    = "${local.name_prefix}-logs-endpoint"
     Type    = "VPC Endpoint"
     Service = "CloudWatch Logs"
-  })
-}
-
-# Additional Security Group for ECS Tasks
-resource "aws_security_group" "ecs_tasks" {
-  name_prefix = "${local.name_prefix}-ecs-tasks-"
-  description = "Security group for ECS tasks"
-  vpc_id      = data.aws_vpc.default.id
-
-  # Allow inbound traffic from ALB
-  ingress {
-    description     = "HTTP from ALB"
-    from_port       = 3000
-    to_port         = 3000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-
-  # Allow all outbound traffic
-  egress {
-    description = "All outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(var.common_tags, {
-    Name    = "${local.name_prefix}-ecs-tasks-sg"
-    Type    = "Security Group"
-    Purpose = "ecs-tasks"
   })
 }
 
@@ -292,15 +252,6 @@ resource "aws_security_group" "alb" {
     description = "HTTP from internet"
     from_port   = 80
     to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Allow inbound HTTPS traffic from internet
-  ingress {
-    description = "HTTPS from internet"
-    from_port   = 443
-    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -327,12 +278,19 @@ resource "aws_security_group" "lambda" {
   description = "Security group for Lambda functions"
   vpc_id      = data.aws_vpc.default.id
 
-  # Allow all outbound traffic
   egress {
-    description = "All outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS to AWS services"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "DNS resolution"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
