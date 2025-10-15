@@ -58,6 +58,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 /assets
 /requirements
 
+# Skip lambda function archive
+lambda-function.zip
+
 # Terraform files and directories to ignore
 
 # Local .terraform directories
