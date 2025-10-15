@@ -34,7 +34,6 @@ variable "common_tags" {
   }
 }
 
-# S3 Configuration
 variable "s3_bucket_force_destroy" {
   description = "Force destroy S3 bucket even if not empty"
   type        = bool
@@ -53,7 +52,6 @@ variable "s3_versioning_enabled" {
   default     = true
 }
 
-# DynamoDB Configuration
 variable "dynamodb_billing_mode" {
   description = "DynamoDB billing mode"
   type        = string
@@ -64,7 +62,6 @@ variable "dynamodb_billing_mode" {
   }
 }
 
-# SNS Configuration
 variable "sns_topic_name" {
   description = "SNS topic name (will be prefixed with environment)"
   type        = string

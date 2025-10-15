@@ -42,8 +42,6 @@ container_image_tag = "latest"
 desired_count       = 2
 task_cpu            = 256
 task_memory         = 512
-certificate_arn     = ""
-domain_name         = ""
 ```
 
 ### Step 3: Initialize and Deploy

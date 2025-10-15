@@ -15,18 +15,6 @@ resource "aws_security_group" "alb_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Allow HTTPS traffic from internet (if certificate is provided)
-  dynamic "ingress" {
-    for_each = var.certificate_arn != "" ? [1] : []
-    content {
-      description = "HTTPS from internet"
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
-  }
-
   # Allow all outbound traffic
   egress {
     description = "All outbound traffic"
@@ -115,7 +103,6 @@ resource "aws_lb_target_group" "ecs_targets" {
     unhealthy_threshold = 3
   }
 
-  # Deregistration delay
   deregistration_delay = 30
 
   tags = {
@@ -126,31 +113,16 @@ resource "aws_lb_target_group" "ecs_targets" {
   }
 }
 
-# HTTP Listener (always created)
+# HTTP Listener
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = "80"
   protocol          = "HTTP"
 
-  # Default action - forward to target group or redirect to HTTPS
-  dynamic "default_action" {
-    for_each = var.certificate_arn != "" ? [1] : []
-    content {
-      type = "redirect"
-      redirect {
-        port        = "443"
-        protocol    = "HTTPS"
-        status_code = "HTTP_301"
-      }
-    }
-  }
-
-  dynamic "default_action" {
-    for_each = var.certificate_arn == "" ? [1] : []
-    content {
-      type             = "forward"
-      target_group_arn = aws_lb_target_group.ecs_targets.arn
-    }
+  # Direct forward to target group
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.ecs_targets.arn
   }
 
   tags = {

@@ -66,12 +66,6 @@ variable "lambda_security_group_id" {
   description = "Lambda security group ID from tf-environment module"
 }
 
-variable "certificate_arn" {
-  type        = string
-  description = "SSL certificate ARN for ALB"
-  default     = ""
-}
-
 variable "desired_count" {
   type        = number
   description = "Desired number of ECS tasks"

@@ -1,5 +1,3 @@
-# PROD Environment Variables
-
 variable "environment" {
   description = "Environment name"
   type        = string
@@ -51,16 +49,4 @@ variable "task_memory" {
   description = "Memory for the ECS task"
   type        = number
   default     = 1024
-}
-
-variable "certificate_arn" {
-  description = "SSL certificate ARN for ALB"
-  type        = string
-  default     = ""
-}
-
-variable "domain_name" {
-  description = "Domain name for the application"
-  type        = string
-  default     = ""
 }
