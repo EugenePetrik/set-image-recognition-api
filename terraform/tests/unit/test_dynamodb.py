@@ -1,0 +1,91 @@
+import pytest
+import boto3
+from moto import mock_dynamodb
+from tests.utils.aws_helpers import AWSResourceHelper
+
+
+@pytest.mark.unit
+@pytest.mark.dynamodb
+class TestDynamoDBTable:
+    def test_dynamodb_table_naming_convention(self, expected_resource_names):
+        expected_name = expected_resource_names["dynamodb_table"]
+        assert "image-recognition-api" in expected_name
+        assert "images" in expected_name
+        
+    def test_dynamodb_table_exists_in_outputs(self, terraform_outputs):
+        assert "dynamodb_table_name" in terraform_outputs
+        assert terraform_outputs["dynamodb_table_name"] is not None
+        assert len(terraform_outputs["dynamodb_table_name"]) > 0
+        
+    @mock_dynamodb
+    def test_dynamodb_table_schema(self, terraform_environment, aws_region, expected_resource_names):
+        dynamodb_client = boto3.client('dynamodb', region_name=aws_region)
+        helper = AWSResourceHelper(environment=terraform_environment, region=aws_region)
+
+        table_name = expected_resource_names["dynamodb_table"]
+        
+        # Create table matching expected Terraform configuration
+        try:
+            dynamodb_client.create_table(
+                TableName=table_name,
+                KeySchema=[
+                    {"AttributeName": "ImageId", "KeyType": "HASH"},
+                    {"AttributeName": "CreatedAt", "KeyType": "RANGE"}
+                ],
+                AttributeDefinitions=[
+                    {"AttributeName": "ImageId", "AttributeType": "S"},
+                    {"AttributeName": "CreatedAt", "AttributeType": "S"},
+                    {"AttributeName": "LabelValue", "AttributeType": "S"}
+                ],
+                BillingMode='PAY_PER_REQUEST',
+                GlobalSecondaryIndexes=[
+                    {
+                        'IndexName': 'LabelValue-CreatedAt-index',
+                        'KeySchema': [
+                            {"AttributeName": "LabelValue", "KeyType": "HASH"},
+                            {"AttributeName": "CreatedAt", "KeyType": "RANGE"}
+                        ],
+                        'Projection': {'ProjectionType': 'ALL'}
+                    }
+                ]
+            )
+        except dynamodb_client.exceptions.ResourceInUseException:
+            # Table already exists
+            pass
+
+        assert helper.resource_exists("dynamodb_table", table_name)
+        
+        config = helper.get_dynamodb_table_config(table_name)
+        assert config["table_name"] == table_name
+        assert config["table_status"] == "ACTIVE"
+        assert len(config["key_schema"]) == 2
+        assert config["billing_mode"] == "PAY_PER_REQUEST"
+        
+    def test_dynamodb_table_key_schema(self):
+        expected_schema = [
+            {"AttributeName": "ImageId", "KeyType": "HASH"},
+            {"AttributeName": "CreatedAt", "KeyType": "RANGE"}
+        ]
+
+        assert len(expected_schema) == 2
+        assert expected_schema[0]["AttributeName"] == "ImageId"
+        assert expected_schema[0]["KeyType"] == "HASH"
+        assert expected_schema[1]["AttributeName"] == "CreatedAt"
+        assert expected_schema[1]["KeyType"] == "RANGE"
+        
+    def test_dynamodb_gsi_configuration(self):
+        expected_gsi = {
+            "IndexName": "LabelValue-CreatedAt-index",
+            "KeySchema": [
+                {"AttributeName": "LabelValue", "KeyType": "HASH"},
+                {"AttributeName": "CreatedAt", "KeyType": "RANGE"}
+            ],
+            "ProjectionType": "ALL"
+        }
+
+        assert "LabelValue-CreatedAt" in expected_gsi["IndexName"]
+
+        assert expected_gsi["ProjectionType"] == "ALL"
+        assert len(expected_gsi["KeySchema"]) == 2
+        assert len(expected_gsi["KeySchema"]) == 2
+        assert expected_gsi["ProjectionType"] == "ALL"

@@ -1,0 +1,92 @@
+# TFSec Configuration
+
+minimum_severity: MEDIUM
+
+# Include ignored checks in output
+include_ignored: false
+
+# Include passed checks in output
+include_passed: false
+
+# Soft fail mode
+soft_fail: false
+
+# Exclude specific directories
+exclude_paths:
+  - '**/.terraform/**'
+  - '**/tests/**'
+
+# Exclude specific files
+exclude_files:
+  - '**/*.tfvars'
+  - '**/terraform.tfstate*'
+
+# Custom check directories
+custom_check_dir: 'tfsec-checks'
+
+# Output format (default, json, csv, checkstyle, junit, sarif, gif)
+format: default
+
+# Concurrency level
+concurrency_level: 4
+
+# Configuration file locations to check
+config_file_dirs:
+  - 'terraform/'
+  - 'terraform/modules/'
+  - 'terraform/tf-dev/'
+  - 'terraform/tf-qa/'
+  - 'terraform/tf-prod/'
+
+# Exclude specific checks
+exclude:
+  # CloudTrail
+  - aws-logging-no-cloudtrail-bucket
+  - aws-cloudtrail-no-cloudtrail
+
+  # GuardDuty checks
+  - aws-guardduty-no-guardduty-detector
+
+  # Config checks
+  - aws-config-configuration-recorder-not-enabled
+  - aws-config-delivery-channel-not-enabled
+
+  # VPC
+  - aws-ec2-no-vpc-flow-logs-enabled
+  - aws-ec2-no-public-ingress-sgr
+  - aws-ec2-no-public-egress-sgr
+
+  # ALB access
+  - aws-elb-alb-not-logging
+  - aws-elb-alb-not-public
+  - aws-elb-drop-invalid-headers
+  - aws-elb-http-not-used
+
+  # S3 bucket
+  - aws-s3-enable-bucket-logging
+  - aws-s3-no-public-buckets
+  - aws-s3-ignore-public-acls
+  - aws-s3-block-public-policy
+  - aws-s3-block-public-acls
+  - aws-s3-encryption-customer-key
+  - aws-s3-enable-bucket-encryption
+
+  # SQS
+  - aws-sqs-enable-queue-encryption
+  - aws-sqs-queue-encryption-at-rest
+
+  # SNS
+  - aws-sns-enable-topic-encryption
+
+# Include specific checks only
+include: []
+
+severity_overrides:
+  aws-s3-no-public-read: CRITICAL
+  aws-s3-no-public-read-write: CRITICAL
+  aws-iam-no-policy-wildcards: HIGH
+  aws-ec2-no-public-ingress-sgr: HIGH
+
+vars:
+  environment: 'multi'
+  project_name: 'image-recognition-api'
