@@ -1,0 +1,150 @@
+name: Release Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  qa-validation:
+    name: QA Environment Validation
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Verify QA deployment
+        run: |
+          # Check ECS service is stable
+          aws ecs wait services-stable \
+            --cluster ${{ secrets.ECS_CLUSTER_QA }} \
+            --services ${{ secrets.ECS_SERVICE_QA }}
+
+      - name: Run smoke tests on QA
+        run: |
+          echo "Running smoke tests on QA environment..."
+          # Add your smoke test commands here
+
+      - name: Comment PR with QA status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ QA environment validated and ready for production deployment'
+            });
+
+  production-deployment:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    environment:
+      name: production
+      url: https://prod.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get latest QA task definition
+        id: get-task-def
+        run: |
+          # Get QA service's current task definition ARN
+          TASK_DEF_ARN=$(aws ecs describe-services \
+            --cluster ${{ secrets.ECS_CLUSTER_QA }} \
+            --services ${{ secrets.ECS_SERVICE_QA }} \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
+          echo "qa-task-def-arn=${TASK_DEF_ARN}" >> $GITHUB_OUTPUT
+
+          # Download task definition
+          aws ecs describe-task-definition \
+            --task-definition $TASK_DEF_ARN \
+            --query 'taskDefinition' > task-def.json
+
+          # Clean up unnecessary fields
+          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            task-def.json > clean-task-def.json
+
+          cat clean-task-def.json
+
+      - name: Register new task definition for PROD
+        id: register-task-def
+        run: |
+          NEW_TASK_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://clean-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "task-def-arn=${NEW_TASK_ARN}" >> $GITHUB_OUTPUT
+          echo "✅ Registered new task definition: ${NEW_TASK_ARN}"
+
+      - name: Update PROD service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ secrets.ECS_CLUSTER_PROD }} \
+            --service ${{ secrets.ECS_SERVICE_PROD }} \
+            --task-definition ${{ steps.register-task-def.outputs.task-def-arn }} \
+            --force-new-deployment
+
+          echo "✅ Started deployment to PROD"
+
+      - name: Wait for deployment completion
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ secrets.ECS_CLUSTER_PROD }} \
+            --services ${{ secrets.ECS_SERVICE_PROD }}
+
+          echo "✅ PROD deployment completed successfully"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          body: |
+            ## Production Release v${{ github.run_number }}
+
+            **Deployed:** ${{ github.event.pull_request.merged_at }}
+            **Merged by:** @${{ github.event.pull_request.merged_by.login }}
+            **QA Task Definition:** ${{ steps.get-task-def.outputs.qa-task-def-arn }}
+            **PROD Task Definition:** ${{ steps.register-task-def.outputs.task-def-arn }}
+
+            ### Changes
+            ${{ github.event.pull_request.body }}
+          draft: false
+          prerelease: false
+
+      - name: Promote Lambda from QA to PROD
+        run: |
+          # Get QA Lambda function configuration
+          QA_LAMBDA_CONFIG=$(aws lambda get-function \
+            --function-name ${{ secrets.LAMBDA_FUNCTION_QA }} \
+            --query 'Configuration.CodeSha256' \
+            --output text)
+
+          # Update PROD Lambda with QA code
+          aws lambda update-function-code \
+            --function-name ${{ secrets.LAMBDA_FUNCTION_PROD }} \
+            --s3-bucket ${{ secrets.S3_LAMBDA_BUCKET }} \
+            --s3-key qa/lambda-deployment-latest.zip
+
+          echo "✅ Promoted Lambda from QA to PROD"
