@@ -1,5 +1,4 @@
 # QA Environment Configuration
-# This file demonstrates usage of the tf-environment module
 
 terraform {
   required_version = ">= 1.0"
@@ -15,6 +14,9 @@ terraform {
 provider "aws" {
   region = var.aws_region
 }
+
+# Get current AWS account ID
+data "aws_caller_identity" "current" {}
 
 module "environment" {
   source = "../modules/tf-environment"
@@ -43,13 +45,52 @@ module "application" {
   lambda_security_group_id = module.environment.lambda_security_group_id
 }
 
-# Outputs
+# ===================================================================
+# GitHub Secrets
+# ===================================================================
+
+output "github_secrets" {
+  description = "Values to add as GitHub Secrets (for QA environment)"
+  value = {
+    # AWS Configuration
+    AWS_REGION     = var.aws_region
+    AWS_ACCOUNT_ID = data.aws_caller_identity.current.account_id
+
+    # ECS Configuration
+    ECS_CLUSTER_QA = module.application.ecs_cluster_name
+    ECS_SERVICE_QA = module.application.ecs_service_name
+
+    # Lambda Configuration
+    LAMBDA_FUNCTION_QA = module.application.lambda_function_name
+
+    # S3 Bucket
+    S3_BUCKET_QA = module.environment.s3_bucket_name
+
+    # DynamoDB Table
+    DYNAMODB_TABLE_QA = module.environment.dynamodb_table_name
+
+    # SNS Topic
+    SNS_TOPIC_ARN_QA = module.environment.sns_topic_arn
+
+    # SQS Queue
+    SQS_QUEUE_URL_QA = module.environment.sqs_queue_url
+  }
+}
+
+# ===================================================================
+# Detailed Outputs (for reference and debugging)
+# ===================================================================
+
 output "environment_outputs" {
   description = "Outputs from tf-environment module"
   value = {
+    vpc_id              = module.environment.vpc_id
     s3_bucket_name      = module.environment.s3_bucket_name
+    s3_bucket_arn       = module.environment.s3_bucket_arn
     dynamodb_table_name = module.environment.dynamodb_table_name
+    dynamodb_table_arn  = module.environment.dynamodb_table_arn
     sqs_queue_url       = module.environment.sqs_queue_url
+    sqs_queue_arn       = module.environment.sqs_queue_arn
     sns_topic_arn       = module.environment.sns_topic_arn
   }
 }
@@ -68,6 +109,8 @@ output "deployment_info" {
   description = "Key information for QA testing and validation"
   value = {
     environment      = var.environment
+    aws_region       = var.aws_region
+    aws_account_id   = data.aws_caller_identity.current.account_id
     application_url  = "http://${module.application.alb_dns_name}"
     health_check_url = "http://${module.application.alb_dns_name}/api/v1/health"
     api_docs_url     = "http://${module.application.alb_dns_name}/api/docs"
