@@ -32,11 +32,6 @@ jobs:
             --cluster ${{ secrets.ECS_CLUSTER_QA }} \
             --services ${{ secrets.ECS_SERVICE_QA }}
 
-      - name: Run smoke tests on QA
-        run: |
-          echo "Running smoke tests on QA environment..."
-          # Add your smoke test commands here
-
       - name: Comment PR with QA status
         uses: actions/github-script@v7
         with:
