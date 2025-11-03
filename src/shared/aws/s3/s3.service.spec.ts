@@ -731,6 +731,7 @@ describe('S3Service', () => {
       expect(() => service.validateImage(mockFile)).not.toThrow();
 
       mockS3Client.send.mockResolvedValue({});
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       expect(service.uploadImage(mockFile)).resolves.toBeDefined();
     });
 
