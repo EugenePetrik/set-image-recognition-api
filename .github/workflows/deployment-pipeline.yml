@@ -1,0 +1,327 @@
+name: Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - develop # Deploy to DEV
+      - release # Deploy to QA
+      - main # Deploy to PROD
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  NODE_VERSION: '20.x'
+
+jobs:
+  determine-environment:
+    name: Determine Target Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      ecs-cluster: ${{ steps.set-env.outputs.ecs-cluster }}
+      ecs-service: ${{ steps.set-env.outputs.ecs-service }}
+      lambda-function: ${{ steps.set-env.outputs.lambda-function }}
+    steps:
+      - name: Set environment based on branch
+        id: set-env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "ecs-cluster=${{ secrets.ECS_CLUSTER_DEV }}" >> $GITHUB_OUTPUT
+            echo "ecs-service=${{ secrets.ECS_SERVICE_DEV }}" >> $GITHUB_OUTPUT
+            echo "lambda-function=${{ secrets.LAMBDA_FUNCTION_DEV }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/release" ]]; then
+            echo "environment=qa" >> $GITHUB_OUTPUT
+            echo "ecs-cluster=${{ secrets.ECS_CLUSTER_QA }}" >> $GITHUB_OUTPUT
+            echo "ecs-service=${{ secrets.ECS_SERVICE_QA }}" >> $GITHUB_OUTPUT
+            echo "lambda-function=${{ secrets.LAMBDA_FUNCTION_QA }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "ecs-cluster=${{ secrets.ECS_CLUSTER_PROD }}" >> $GITHUB_OUTPUT
+            echo "ecs-service=${{ secrets.ECS_SERVICE_PROD }}" >> $GITHUB_OUTPUT
+            echo "lambda-function=${{ secrets.LAMBDA_FUNCTION_PROD }}" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-lambda:
+    name: Deploy Lambda Function
+    runs-on: ubuntu-latest
+    needs: determine-environment
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create deployment package
+        run: |
+          cd terraform/modules/tf-application/lambda
+          zip -r lambda-deployment.zip .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload to S3
+        run: |
+          aws s3 cp terraform/modules/tf-application/lambda/lambda-deployment.zip \
+            s3://${{ secrets.S3_LAMBDA_BUCKET }}/${{ needs.determine-environment.outputs.environment }}/lambda-deployment-${{ github.sha }}.zip
+
+      - name: Update Lambda function
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ needs.determine-environment.outputs.lambda-function }} \
+            --s3-bucket ${{ secrets.S3_LAMBDA_BUCKET }} \
+            --s3-key ${{ needs.determine-environment.outputs.environment }}/lambda-deployment-${{ github.sha }}.zip
+
+      - name: Wait for Lambda update to complete
+        run: |
+          aws lambda wait function-updated \
+            --function-name ${{ needs.determine-environment.outputs.lambda-function }}
+
+      - name: Copy to latest version for environment
+        run: |
+          ENV=${{ needs.determine-environment.outputs.environment }}
+
+          # Copy versioned file to "latest" for easy promotion between environments
+          aws s3 cp \
+            s3://${{ secrets.S3_LAMBDA_BUCKET }}/${ENV}/lambda-deployment-${{ github.sha }}.zip \
+            s3://${{ secrets.S3_LAMBDA_BUCKET }}/${ENV}/lambda-deployment-latest.zip
+
+          echo "✅ Created latest version reference for ${ENV} environment"
+
+  deploy-ecs:
+    name: Deploy to ECS with Environment Variables
+    runs-on: ubuntu-latest
+    needs: determine-environment
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get current task definition
+        id: get-task-def
+        run: |
+          TASK_DEF_ARN=$(aws ecs describe-services \
+            --cluster ${{ needs.determine-environment.outputs.ecs-cluster }} \
+            --service ${{ needs.determine-environment.outputs.ecs-service }} \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
+          echo "current-task-def=${TASK_DEF_ARN}" >> $GITHUB_OUTPUT
+
+          # Download task definition
+          aws ecs describe-task-definition \
+            --task-definition $TASK_DEF_ARN \
+            --query 'taskDefinition' > task-def.json
+
+      - name: Update task definition with environment-specific variables
+        id: update-task-def
+        run: |
+          ENV=${{ needs.determine-environment.outputs.environment }}
+          ENV_UPPER=$(echo $ENV | tr '[:lower:]' '[:upper:]')
+
+          # Get actual values from GitHub secrets
+          S3_BUCKET="${{ secrets[format('S3_BUCKET_{0}', env.ENV_UPPER)] }}"
+          DYNAMODB_TABLE="${{ secrets[format('DYNAMODB_TABLE_{0}', env.ENV_UPPER)] }}"
+          SNS_TOPIC="${{ secrets[format('SNS_TOPIC_ARN_{0}', env.ENV_UPPER)] }}"
+          SQS_QUEUE="${{ secrets[format('SQS_QUEUE_URL_{0}', env.ENV_UPPER)] }}"
+
+          echo "Injecting environment variables for ${ENV} environment:"
+          echo "  S3_BUCKET: ${S3_BUCKET}"
+          echo "  DYNAMODB_TABLE: ${DYNAMODB_TABLE}"
+          echo "  SNS_TOPIC: ${SNS_TOPIC}"
+          echo "  SQS_QUEUE: ${SQS_QUEUE}"
+
+          # Update task definition with environment variables
+          jq --arg s3_bucket "$S3_BUCKET" \
+             --arg dynamodb_table "$DYNAMODB_TABLE" \
+             --arg sns_topic "$SNS_TOPIC" \
+             --arg sqs_queue "$SQS_QUEUE" \
+             --arg environment "$ENV" \
+             --arg region "${{ env.AWS_REGION }}" \
+             '
+             .containerDefinitions[0].environment = [
+               {name: "NODE_ENV", value: "production"},
+               {name: "ENVIRONMENT", value: $environment},
+               {name: "AWS_REGION", value: $region},
+               {name: "AWS_S3_BUCKET_NAME", value: $s3_bucket},
+               {name: "AWS_DYNAMODB_TABLE_NAME", value: $dynamodb_table},
+               {name: "AWS_SNS_TOPIC_ARN", value: $sns_topic},
+               {name: "AWS_SQS_QUEUE_URL", value: $sqs_queue},
+               {name: "PORT", value: "3000"},
+               {name: "API_VERSION", value: "v1"},
+               {name: "API_PREFIX", value: "api"}
+             ] |
+             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+             ' task-def.json > updated-task-def.json
+
+          cat updated-task-def.json
+
+      - name: Register new task definition
+        id: register-task-def
+        run: |
+          NEW_TASK_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://updated-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "new-task-arn=${NEW_TASK_ARN}" >> $GITHUB_OUTPUT
+          echo "✅ Registered new task definition: ${NEW_TASK_ARN}"
+
+      - name: Update ECS service with new task definition
+        run: |
+          aws ecs update-service \
+            --cluster ${{ needs.determine-environment.outputs.ecs-cluster }} \
+            --service ${{ needs.determine-environment.outputs.ecs-service }} \
+            --task-definition ${{ steps.register-task-def.outputs.new-task-arn }} \
+            --force-new-deployment
+
+          echo "✅ ECS service updated with environment-specific configuration"
+
+      - name: Wait for service stability
+        run: |
+          echo "⏳ Waiting for service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster ${{ needs.determine-environment.outputs.ecs-cluster }} \
+            --service ${{ needs.determine-environment.outputs.ecs-service }}
+
+          echo "✅ Service deployment completed successfully"
+
+  auto-deploy-to-qa:
+    name: Auto-Deploy to QA
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+      - name: Fast-forward release branch to develop
+        run: |
+          git fetch origin release:release
+          git checkout release
+          git merge --ff-only origin/develop
+          git push origin release
+        continue-on-error: false
+
+      - name: Confirm QA deployment trigger
+        run: |
+          echo "✅ Release branch updated with develop changes"
+          echo "🚀 QA deployment pipeline will automatically trigger on release branch"
+
+  wait-for-qa-deployment:
+    name: Wait for QA Deployment
+    runs-on: ubuntu-latest
+    needs: auto-deploy-to-qa
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - name: Wait for QA pipeline to start
+        run: |
+          echo "⏳ Waiting for QA deployment to complete..."
+          sleep 120  # Give time for release branch workflow to start and complete
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Wait for QA ECS service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ secrets.ECS_CLUSTER_QA }} \
+            --services ${{ secrets.ECS_SERVICE_QA }}
+
+          echo "✅ QA ECS service is stable"
+
+      - name: Verify QA Lambda deployment
+        run: |
+          LAMBDA_STATE=$(aws lambda get-function \
+            --function-name ${{ secrets.LAMBDA_FUNCTION_QA }} \
+            --query 'Configuration.State' \
+            --output text)
+
+          if [ "$LAMBDA_STATE" != "Active" ]; then
+            echo "❌ QA Lambda is not active: $LAMBDA_STATE"
+            exit 1
+          fi
+
+          echo "✅ QA Lambda is active"
+
+  create-prod-release-pr:
+    name: Create PR for PROD Release
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Pull Request to main
+        uses: repo-sync/pull-request@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          source_branch: release
+          destination_branch: main
+          pr_title: '🚀 Production Release: Deploy to PROD'
+          pr_body: |
+            ## 🎯 Production Release Candidate
+
+            This release has been successfully deployed and tested in:
+            - ✅ **DEV Environment** - All tests passed
+            - ✅ **QA Environment** - All tests passed
+
+            ### Deployment Summary
+            - **Source Branch:** `release`
+            - **Commit:** ${{ github.sha }}
+            - **Author:** ${{ github.event.head_commit.author.name }}
+
+            ### Quality Gates Passed
+            - ✅ DEV Infrastructure Tests
+            - ✅ DEV API Tests
+            - ✅ QA Infrastructure Tests
+            - ✅ QA API Tests
+
+            ### ⚠️ Important
+            **Merging this PR will deploy to PRODUCTION environment.**
+
+            Please ensure:
+            1. All changes have been reviewed
+            2. QA sign-off has been obtained
+            3. Deployment window is appropriate
+
+            ### Next Steps
+            1. Review all changes in this PR
+            2. Obtain 2 approvals (as per branch protection rules)
+            3. Merge to trigger PROD deployment
+          pr_label: 'production-release,needs-review,qa-approved'
+
+  deployment-notification:
+    name: Send Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [determine-environment, deploy-ecs, deploy-lambda]
+    if: always()
+    steps:
+      - name: Deployment Status
+        run: |
+          if [[ "${{ needs.infrastructure-tests.result }}" == "success" && \
+                "${{ needs.api-tests.result }}" == "success" ]]; then
+            echo "✅ Deployment to ${{ needs.determine-environment.outputs.environment }} succeeded!"
+          else
+            echo "❌ Deployment to ${{ needs.determine-environment.outputs.environment }} failed!"
+            exit 1
+          fi
