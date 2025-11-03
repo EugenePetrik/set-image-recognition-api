@@ -6,13 +6,15 @@ on:
       - main
     types: [opened, synchronize, reopened, closed]
 
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
 jobs:
   qa-validation:
     name: QA Environment Validation
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      issues: write
     if: github.event.action != 'closed'
     steps:
       - name: Checkout code
@@ -49,7 +51,6 @@ jobs:
     if: github.event.pull_request.merged == true
     environment:
       name: production
-      url: https://prod.example.com
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -146,3 +147,19 @@ jobs:
             --s3-key qa/lambda-deployment-latest.zip
 
           echo "✅ Promoted Lambda from QA to PROD"
+
+      - name: Comment PR with deployment status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 **Production Deployment Successful!**
+              
+              **Release:** v${{ github.run_number }}
+              **PROD Task Definition:** ${{ steps.register-task-def.outputs.task-def-arn }}
+              
+              View the release: https://github.com/${{ github.repository }}/releases/tag/v${{ github.run_number }}`
+            });
