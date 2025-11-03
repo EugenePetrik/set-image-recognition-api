@@ -50,16 +50,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          cd terraform/modules/tf-application/lambda
-          pip install -r requirements.txt -t .
-
       - name: Create deployment package
         run: |
           cd terraform/modules/tf-application/lambda
