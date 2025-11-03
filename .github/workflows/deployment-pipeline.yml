@@ -21,6 +21,10 @@ jobs:
       ecs-cluster: ${{ steps.set-env.outputs.ecs-cluster }}
       ecs-service: ${{ steps.set-env.outputs.ecs-service }}
       lambda-function: ${{ steps.set-env.outputs.lambda-function }}
+      s3-bucket: ${{ steps.set-env.outputs.s3-bucket }}
+      dynamodb-table: ${{ steps.set-env.outputs.dynamodb-table }}
+      sns-topic-arn: ${{ steps.set-env.outputs.sns-topic-arn }}
+      sqs-queue-url: ${{ steps.set-env.outputs.sqs-queue-url }}
     steps:
       - name: Set environment based on branch
         id: set-env
@@ -30,17 +34,33 @@ jobs:
             echo "ecs-cluster=${{ secrets.ECS_CLUSTER_DEV }}" >> $GITHUB_OUTPUT
             echo "ecs-service=${{ secrets.ECS_SERVICE_DEV }}" >> $GITHUB_OUTPUT
             echo "lambda-function=${{ secrets.LAMBDA_FUNCTION_DEV }}" >> $GITHUB_OUTPUT
+            echo "s3-bucket=${{ secrets.S3_BUCKET_DEV }}" >> $GITHUB_OUTPUT
+            echo "dynamodb-table=${{ secrets.DYNAMODB_TABLE_DEV }}" >> $GITHUB_OUTPUT
+            echo "sns-topic-arn=${{ secrets.SNS_TOPIC_ARN_DEV }}" >> $GITHUB_OUTPUT
+            echo "sqs-queue-url=${{ secrets.SQS_QUEUE_URL_DEV }}" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref }}" == "refs/heads/release" ]]; then
             echo "environment=qa" >> $GITHUB_OUTPUT
             echo "ecs-cluster=${{ secrets.ECS_CLUSTER_QA }}" >> $GITHUB_OUTPUT
             echo "ecs-service=${{ secrets.ECS_SERVICE_QA }}" >> $GITHUB_OUTPUT
             echo "lambda-function=${{ secrets.LAMBDA_FUNCTION_QA }}" >> $GITHUB_OUTPUT
+            echo "s3-bucket=${{ secrets.S3_BUCKET_QA }}" >> $GITHUB_OUTPUT
+            echo "dynamodb-table=${{ secrets.DYNAMODB_TABLE_QA }}" >> $GITHUB_OUTPUT
+            echo "sns-topic-arn=${{ secrets.SNS_TOPIC_ARN_QA }}" >> $GITHUB_OUTPUT
+            echo "sqs-queue-url=${{ secrets.SQS_QUEUE_URL_QA }}" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "environment=prod" >> $GITHUB_OUTPUT
             echo "ecs-cluster=${{ secrets.ECS_CLUSTER_PROD }}" >> $GITHUB_OUTPUT
             echo "ecs-service=${{ secrets.ECS_SERVICE_PROD }}" >> $GITHUB_OUTPUT
             echo "lambda-function=${{ secrets.LAMBDA_FUNCTION_PROD }}" >> $GITHUB_OUTPUT
+            echo "s3-bucket=${{ secrets.S3_BUCKET_PROD }}" >> $GITHUB_OUTPUT
+            echo "dynamodb-table=${{ secrets.DYNAMODB_TABLE_PROD }}" >> $GITHUB_OUTPUT
+            echo "sns-topic-arn=${{ secrets.SNS_TOPIC_ARN_PROD }}" >> $GITHUB_OUTPUT
+            echo "sqs-queue-url=${{ secrets.SQS_QUEUE_URL_PROD }}" >> $GITHUB_OUTPUT
           fi
+
+          # ✅ Debug output to verify values
+          echo "Environment: $(cat $GITHUB_OUTPUT | grep 'environment=')"
+          echo "Lambda Function: $(cat $GITHUB_OUTPUT | grep 'lambda-function=')"
 
   deploy-lambda:
     name: Deploy Lambda Function
@@ -50,10 +70,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Debug environment variables
+        run: |
+          echo "Environment: ${{ needs.determine-environment.outputs.environment }}"
+          echo "Lambda Function: ${{ needs.determine-environment.outputs.lambda-function }}"
+          echo "ECS Cluster: ${{ needs.determine-environment.outputs.ecs-cluster }}"
+          echo "ECS Service: ${{ needs.determine-environment.outputs.ecs-service }}"
+
+      - name: Validate Lambda function name
+        run: |
+          if [ -z "${{ needs.determine-environment.outputs.lambda-function }}" ]; then
+            echo "❌ Lambda function name is empty!"
+            echo "Check GitHub Secrets for:"
+            echo "  - LAMBDA_FUNCTION_DEV"
+            echo "  - LAMBDA_FUNCTION_QA"
+            echo "  - LAMBDA_FUNCTION_PROD"
+            exit 1
+          fi
+          echo "✅ Lambda function: ${{ needs.determine-environment.outputs.lambda-function }}"
+
       - name: Create deployment package
         run: |
           cd terraform/modules/tf-application/lambda
-          zip -r lambda-deployment.zip .
+
+          # Create zip excluding unnecessary files
+          zip -r lambda-deployment.zip . \
+            -x "*.pyc" \
+            -x "__pycache__/*" \
+            -x "*.git*" \
+            -x "tests/*"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -64,20 +109,37 @@ jobs:
 
       - name: Upload to S3
         run: |
+          ENV=${{ needs.determine-environment.outputs.environment }}
+          LAMBDA_FUNC=${{ needs.determine-environment.outputs.lambda-function }}
+
+          echo "Uploading Lambda package to S3..."
+          echo "  Environment: ${ENV}"
+          echo "  Function: ${LAMBDA_FUNC}"
+
           aws s3 cp terraform/modules/tf-application/lambda/lambda-deployment.zip \
-            s3://${{ secrets.S3_LAMBDA_BUCKET }}/${{ needs.determine-environment.outputs.environment }}/lambda-deployment-${{ github.sha }}.zip
+            s3://${{ secrets.S3_LAMBDA_BUCKET }}/${ENV}/lambda-deployment-${{ github.sha }}.zip
 
       - name: Update Lambda function
         run: |
+          LAMBDA_FUNC="${{ needs.determine-environment.outputs.lambda-function }}"
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+
+          echo "Updating Lambda function: ${LAMBDA_FUNC}"
+
           aws lambda update-function-code \
-            --function-name ${{ needs.determine-environment.outputs.lambda-function }} \
-            --s3-bucket ${{ secrets.S3_LAMBDA_BUCKET }} \
-            --s3-key ${{ needs.determine-environment.outputs.environment }}/lambda-deployment-${{ github.sha }}.zip
+            --function-name "${LAMBDA_FUNC}" \
+            --s3-bucket "${{ secrets.S3_LAMBDA_BUCKET }}" \
+            --s3-key "${ENV}/lambda-deployment-${{ github.sha }}.zip"
 
       - name: Wait for Lambda update to complete
         run: |
+          LAMBDA_FUNC="${{ needs.determine-environment.outputs.lambda-function }}"
+
+          echo "Waiting for Lambda update to complete..."
           aws lambda wait function-updated \
-            --function-name ${{ needs.determine-environment.outputs.lambda-function }}
+            --function-name "${LAMBDA_FUNC}"
+
+          echo "✅ Lambda function updated successfully"
 
       - name: Copy to latest version for environment
         run: |
@@ -124,14 +186,12 @@ jobs:
       - name: Update task definition with environment-specific variables
         id: update-task-def
         run: |
-          ENV=${{ needs.determine-environment.outputs.environment }}
-          ENV_UPPER=$(echo $ENV | tr '[:lower:]' '[:upper:]')
-
-          # Get actual values from GitHub secrets
-          S3_BUCKET="${{ secrets[format('S3_BUCKET_{0}', env.ENV_UPPER)] }}"
-          DYNAMODB_TABLE="${{ secrets[format('DYNAMODB_TABLE_{0}', env.ENV_UPPER)] }}"
-          SNS_TOPIC="${{ secrets[format('SNS_TOPIC_ARN_{0}', env.ENV_UPPER)] }}"
-          SQS_QUEUE="${{ secrets[format('SQS_QUEUE_URL_{0}', env.ENV_UPPER)] }}"
+          # Use outputs from determine-environment job
+          S3_BUCKET="${{ needs.determine-environment.outputs.s3-bucket }}"
+          DYNAMODB_TABLE="${{ needs.determine-environment.outputs.dynamodb-table }}"
+          SNS_TOPIC="${{ needs.determine-environment.outputs.sns-topic-arn }}"
+          SQS_QUEUE="${{ needs.determine-environment.outputs.sqs-queue-url }}"
+          ENV="${{ needs.determine-environment.outputs.environment }}"
 
           echo "Injecting environment variables for ${ENV} environment:"
           echo "  S3_BUCKET: ${S3_BUCKET}"
