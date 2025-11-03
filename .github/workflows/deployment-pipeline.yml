@@ -458,10 +458,8 @@ jobs:
             - **Author:** ${{ github.event.head_commit.author.name }}
 
             ### Quality Gates Passed
+            - ✅ DEV Unit Tests
             - ✅ DEV Infrastructure Tests
-            - ✅ DEV API Tests
-            - ✅ QA Infrastructure Tests
-            - ✅ QA API Tests
 
             ### ⚠️ Important
             **Merging this PR will deploy to PRODUCTION environment.**
