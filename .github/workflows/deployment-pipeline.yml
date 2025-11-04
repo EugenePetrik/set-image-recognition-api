@@ -1,549 +1,549 @@
-name: Deployment Pipeline
-
-on:
-  push:
-    branches:
-      - develop # Deploy to DEV
-      - release # Deploy to QA
-      - main # Deploy to PROD
-
-env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-  NODE_VERSION: '20.x'
-  PNPM_VERSION: '8'
-
-jobs:
-  determine-environment:
-    name: Determine Target Environment
-    runs-on: ubuntu-latest
-    outputs:
-      environment: ${{ steps.set-env.outputs.environment }}
-      ecs-cluster: ${{ steps.set-env.outputs.ecs-cluster }}
-      ecs-service: ${{ steps.set-env.outputs.ecs-service }}
-      lambda-function: ${{ steps.set-env.outputs.lambda-function }}
-      s3-bucket: ${{ steps.set-env.outputs.s3-bucket }}
-      dynamodb-table: ${{ steps.set-env.outputs.dynamodb-table }}
-      sns-topic-arn: ${{ steps.set-env.outputs.sns-topic-arn }}
-      sqs-queue-url: ${{ steps.set-env.outputs.sqs-queue-url }}
-    steps:
-      - name: Set environment based on branch
-        id: set-env
-        run: |
-          # Determine environment from branch
-          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
-            ENV="dev"
-            ECS_CLUSTER="${{ secrets.ECS_CLUSTER_DEV }}"
-            ECS_SERVICE="${{ secrets.ECS_SERVICE_DEV }}"
-            LAMBDA_FUNCTION="${{ secrets.LAMBDA_FUNCTION_DEV }}"
-            S3_BUCKET="${{ secrets.S3_BUCKET_DEV }}"
-            DYNAMODB_TABLE="${{ secrets.DYNAMODB_TABLE_DEV }}"
-            SNS_TOPIC="${{ secrets.SNS_TOPIC_ARN_DEV }}"
-            SQS_QUEUE="${{ secrets.SQS_QUEUE_URL_DEV }}"
-          elif [[ "${{ github.ref }}" == "refs/heads/release" ]]; then
-            ENV="qa"
-            ECS_CLUSTER="${{ secrets.ECS_CLUSTER_QA }}"
-            ECS_SERVICE="${{ secrets.ECS_SERVICE_QA }}"
-            LAMBDA_FUNCTION="${{ secrets.LAMBDA_FUNCTION_QA }}"
-            S3_BUCKET="${{ secrets.S3_BUCKET_QA }}"
-            DYNAMODB_TABLE="${{ secrets.DYNAMODB_TABLE_QA }}"
-            SNS_TOPIC="${{ secrets.SNS_TOPIC_ARN_QA }}"
-            SQS_QUEUE="${{ secrets.SQS_QUEUE_URL_QA }}"
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            ENV="prod"
-            ECS_CLUSTER="${{ secrets.ECS_CLUSTER_PROD }}"
-            ECS_SERVICE="${{ secrets.ECS_SERVICE_PROD }}"
-            LAMBDA_FUNCTION="${{ secrets.LAMBDA_FUNCTION_PROD }}"
-            S3_BUCKET="${{ secrets.S3_BUCKET_PROD }}"
-            DYNAMODB_TABLE="${{ secrets.DYNAMODB_TABLE_PROD }}"
-            SNS_TOPIC="${{ secrets.SNS_TOPIC_ARN_PROD }}"
-            SQS_QUEUE="${{ secrets.SQS_QUEUE_URL_PROD }}"
-          else
-            echo "❌ Unknown branch: ${{ github.ref }}"
-            exit 1
-          fi
-
-          # Output all values
-          echo "environment=${ENV}" >> $GITHUB_OUTPUT
-          echo "ecs-cluster=${ECS_CLUSTER}" >> $GITHUB_OUTPUT
-          echo "ecs-service=${ECS_SERVICE}" >> $GITHUB_OUTPUT
-          echo "lambda-function=${LAMBDA_FUNCTION}" >> $GITHUB_OUTPUT
-          echo "s3-bucket=${S3_BUCKET}" >> $GITHUB_OUTPUT
-          echo "dynamodb-table=${DYNAMODB_TABLE}" >> $GITHUB_OUTPUT
-          echo "sns-topic-arn=${SNS_TOPIC}" >> $GITHUB_OUTPUT
-          echo "sqs-queue-url=${SQS_QUEUE}" >> $GITHUB_OUTPUT
-
-          # Debug output
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🔧 Environment Configuration for: ${ENV}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "Environment: ${ENV}"
-          echo "ECS Cluster: ${ECS_CLUSTER:-'NOT SET'}"
-          echo "ECS Service: ${ECS_SERVICE:-'NOT SET'}"
-          echo "Lambda Function: ${LAMBDA_FUNCTION:-'NOT SET'}"
-          echo "S3 Bucket: ${S3_BUCKET:-'NOT SET'}"
-          echo "DynamoDB Table: ${DYNAMODB_TABLE:-'NOT SET'}"
-          echo "SNS Topic: ${SNS_TOPIC:-'NOT SET'}"
-          echo "SQS Queue: ${SQS_QUEUE:-'NOT SET'}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-      - name: Validate required secrets
-        run: |
-          ENV="${{ steps.set-env.outputs.environment }}"
-          MISSING_SECRETS=()
-
-          # Check each required secret
-          if [ -z "${{ steps.set-env.outputs.lambda-function }}" ]; then
-            MISSING_SECRETS+=("LAMBDA_FUNCTION_${ENV^^}")
-          fi
-
-          if [ -z "${{ steps.set-env.outputs.ecs-cluster }}" ]; then
-            MISSING_SECRETS+=("ECS_CLUSTER_${ENV^^}")
-          fi
-
-          if [ -z "${{ steps.set-env.outputs.ecs-service }}" ]; then
-            MISSING_SECRETS+=("ECS_SERVICE_${ENV^^}")
-          fi
-
-          if [ -z "${{ steps.set-env.outputs.s3-bucket }}" ]; then
-            MISSING_SECRETS+=("S3_BUCKET_${ENV^^}")
-          fi
-
-          if [ -z "${{ steps.set-env.outputs.dynamodb-table }}" ]; then
-            MISSING_SECRETS+=("DYNAMODB_TABLE_${ENV^^}")
-          fi
-
-          # Report missing secrets
-          if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
-            echo "❌ Missing required GitHub Secrets for ${ENV} environment:"
-            for secret in "${MISSING_SECRETS[@]}"; do
-              echo "  - ${secret}"
-            done
-            echo ""
-            echo "📝 Add these secrets at:"
-            echo "   Settings → Secrets and variables → Actions → New repository secret"
-            echo ""
-            echo "Example secret names and values:"
-            echo "  LAMBDA_FUNCTION_${ENV^^}=image-recognition-lambda-${ENV}"
-            echo "  ECS_CLUSTER_${ENV^^}=image-recognition-cluster-${ENV}"
-            echo "  ECS_SERVICE_${ENV^^}=image-recognition-service-${ENV}"
-            echo "  S3_BUCKET_${ENV^^}=image-recognition-${ENV}-bucket"
-            echo "  DYNAMODB_TABLE_${ENV^^}=image-recognition-${ENV}-table"
-            exit 1
-          fi
-
-          echo "✅ All required secrets are configured for ${ENV} environment"
-
-  deploy-lambda:
-    name: Deploy Lambda Function
-    runs-on: ubuntu-latest
-    needs: determine-environment
-    if: needs.determine-environment.outputs.lambda-function != ''
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Debug outputs from determine-environment
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📋 Outputs from determine-environment job:"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "Environment: '${{ needs.determine-environment.outputs.environment }}'"
-          echo "Lambda Function: '${{ needs.determine-environment.outputs.lambda-function }}'"
-          echo "S3 Bucket: '${{ needs.determine-environment.outputs.s3-bucket }}'"
-          echo "DynamoDB Table: '${{ needs.determine-environment.outputs.dynamodb-table }}'"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-      - name: Validate Lambda function name
-        run: |
-          LAMBDA_FUNC="${{ needs.determine-environment.outputs.lambda-function }}"
-
-          if [ -z "${LAMBDA_FUNC}" ]; then
-            echo "❌ Lambda function name is empty!"
-            echo ""
-            echo "This usually means the GitHub Secret is not set."
-            echo "Check GitHub Secrets for:"
-            echo "  - LAMBDA_FUNCTION_DEV"
-            echo "  - LAMBDA_FUNCTION_QA"
-            echo "  - LAMBDA_FUNCTION_PROD"
-            echo ""
-            echo "Current branch: ${{ github.ref }}"
-            echo "Detected environment: ${{ needs.determine-environment.outputs.environment }}"
-            exit 1
-          fi
-
-          echo "✅ Lambda function name: ${LAMBDA_FUNC}"
-
-      - name: Create deployment package
-        run: |
-          cd terraform/modules/tf-application/lambda
-
-          # Install Python dependencies if requirements.txt exists
-          if [ -f requirements.txt ]; then
-            echo "📦 Installing Python dependencies..."
-            pip install -r requirements.txt -t .
-          fi
-
-          # Create zip excluding unnecessary files
-          echo "📦 Creating deployment package..."
-          zip -r lambda-deployment.zip . \
-            -x "*.pyc" \
-            -x "__pycache__/*" \
-            -x "*.git*" \
-            -x "tests/*" \
-            -x "*.md"
-
-          echo "✅ Deployment package created: $(du -h lambda-deployment.zip | cut -f1)"
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Upload to S3
-        run: |
-          ENV="${{ needs.determine-environment.outputs.environment }}"
-          S3_BUCKET="${{ secrets.S3_LAMBDA_BUCKET }}"
-
-          if [ -z "${S3_BUCKET}" ]; then
-            echo "❌ S3_LAMBDA_BUCKET secret is not set!"
-            exit 1
-          fi
-
-          echo "📤 Uploading Lambda package to S3..."
-          echo "  Bucket: ${S3_BUCKET}"
-          echo "  Key: ${ENV}/lambda-deployment-${{ github.sha }}.zip"
-
-          aws s3 cp terraform/modules/tf-application/lambda/lambda-deployment.zip \
-            s3://${S3_BUCKET}/${ENV}/lambda-deployment-${{ github.sha }}.zip
-
-          echo "✅ Upload complete"
-
-      - name: Update Lambda function
-        run: |
-          LAMBDA_FUNC="${{ needs.determine-environment.outputs.lambda-function }}"
-          ENV="${{ needs.determine-environment.outputs.environment }}"
-          S3_BUCKET="${{ secrets.S3_LAMBDA_BUCKET }}"
-
-          echo "🔄 Updating Lambda function..."
-          echo "  Function: ${LAMBDA_FUNC}"
-          echo "  S3 Bucket: ${S3_BUCKET}"
-          echo "  S3 Key: ${ENV}/lambda-deployment-${{ github.sha }}.zip"
-
-          aws lambda update-function-code \
-            --function-name "${LAMBDA_FUNC}" \
-            --s3-bucket "${S3_BUCKET}" \
-            --s3-key "${ENV}/lambda-deployment-${{ github.sha }}.zip"
-
-      - name: Wait for Lambda update to complete
-        run: |
-          LAMBDA_FUNC="${{ needs.determine-environment.outputs.lambda-function }}"
-
-          echo "⏳ Waiting for Lambda update to complete..."
-          aws lambda wait function-updated \
-            --function-name "${LAMBDA_FUNC}"
-
-          echo "✅ Lambda function updated successfully"
-
-      - name: Copy to latest version
-        run: |
-          ENV="${{ needs.determine-environment.outputs.environment }}"
-          S3_BUCKET="${{ secrets.S3_LAMBDA_BUCKET }}"
-
-          aws s3 cp \
-            s3://${S3_BUCKET}/${ENV}/lambda-deployment-${{ github.sha }}.zip \
-            s3://${S3_BUCKET}/${ENV}/lambda-deployment-latest.zip
-
-          echo "✅ Created latest version reference"
-
-  deploy-ecs:
-    name: Deploy to ECS with Environment Variables
-    runs-on: ubuntu-latest
-    needs: determine-environment
-    if: needs.determine-environment.outputs.ecs-cluster != '' && needs.determine-environment.outputs.ecs-service != ''
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Get current task definition
-        id: get-task-def
-        run: |
-          TASK_DEF_ARN=$(aws ecs describe-services \
-            --cluster ${{ needs.determine-environment.outputs.ecs-cluster }} \
-            --service ${{ needs.determine-environment.outputs.ecs-service }} \
-            --query 'services[0].taskDefinition' \
-            --output text)
-
-          echo "current-task-def=${TASK_DEF_ARN}" >> $GITHUB_OUTPUT
-
-          # Download task definition
-          aws ecs describe-task-definition \
-            --task-definition $TASK_DEF_ARN \
-            --query 'taskDefinition' > task-def.json
-
-      - name: Update task definition with environment-specific variables
-        id: update-task-def
-        run: |
-          # Use outputs from determine-environment job
-          S3_BUCKET="${{ needs.determine-environment.outputs.s3-bucket }}"
-          DYNAMODB_TABLE="${{ needs.determine-environment.outputs.dynamodb-table }}"
-          SNS_TOPIC="${{ needs.determine-environment.outputs.sns-topic-arn }}"
-          SQS_QUEUE="${{ needs.determine-environment.outputs.sqs-queue-url }}"
-          ENV="${{ needs.determine-environment.outputs.environment }}"
-
-          echo "Injecting environment variables for ${ENV} environment:"
-          echo "  S3_BUCKET: ${S3_BUCKET}"
-          echo "  DYNAMODB_TABLE: ${DYNAMODB_TABLE}"
-          echo "  SNS_TOPIC: ${SNS_TOPIC}"
-          echo "  SQS_QUEUE: ${SQS_QUEUE}"
-
-          # Update task definition with environment variables
-          jq --arg s3_bucket "$S3_BUCKET" \
-             --arg dynamodb_table "$DYNAMODB_TABLE" \
-             --arg sns_topic "$SNS_TOPIC" \
-             --arg sqs_queue "$SQS_QUEUE" \
-             --arg environment "$ENV" \
-             --arg region "${{ env.AWS_REGION }}" \
-             '
-             .containerDefinitions[0].environment = [
-               {name: "NODE_ENV", value: "production"},
-               {name: "ENVIRONMENT", value: $environment},
-               {name: "AWS_REGION", value: $region},
-               {name: "AWS_S3_BUCKET_NAME", value: $s3_bucket},
-               {name: "AWS_DYNAMODB_TABLE_NAME", value: $dynamodb_table},
-               {name: "AWS_SNS_TOPIC_ARN", value: $sns_topic},
-               {name: "AWS_SQS_QUEUE_URL", value: $sqs_queue},
-               {name: "PORT", value: "3000"},
-               {name: "API_VERSION", value: "v1"},
-               {name: "API_PREFIX", value: "api"}
-             ] |
-             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
-             ' task-def.json > updated-task-def.json
-
-          cat updated-task-def.json
-
-      - name: Register new task definition
-        id: register-task-def
-        run: |
-          NEW_TASK_ARN=$(aws ecs register-task-definition \
-            --cli-input-json file://updated-task-def.json \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)
-
-          echo "new-task-arn=${NEW_TASK_ARN}" >> $GITHUB_OUTPUT
-          echo "✅ Registered new task definition: ${NEW_TASK_ARN}"
-
-      - name: Update ECS service with new task definition
-        run: |
-          aws ecs update-service \
-            --cluster ${{ needs.determine-environment.outputs.ecs-cluster }} \
-            --service ${{ needs.determine-environment.outputs.ecs-service }} \
-            --task-definition ${{ steps.register-task-def.outputs.new-task-arn }} \
-            --force-new-deployment
-
-          echo "✅ ECS service updated with environment-specific configuration"
-
-      - name: Wait for service stability
-        run: |
-          echo "⏳ Waiting for service to stabilize..."
-          aws ecs wait services-stable \
-            --cluster ${{ needs.determine-environment.outputs.ecs-cluster }} \
-            --service ${{ needs.determine-environment.outputs.ecs-service }}
-
-          echo "✅ Service deployment completed successfully"
-
-  auto-deploy-to-qa:
-    name: Auto-Deploy to QA
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.PAT_TOKEN }}
-
-      - name: Configure Git
-        run: |
-          git config user.name "GitHub Actions Bot"
-          git config user.email "actions@github.com"
-
-      - name: Fast-forward release branch to develop
-        run: |
-          git fetch origin release:release || git fetch origin develop:release
-          git checkout release
-          git merge --ff-only origin/develop
-          git push origin release
-        continue-on-error: false
-
-      - name: Confirm QA deployment trigger
-        run: |
-          echo "✅ Release branch updated with develop changes"
-          echo "🚀 QA deployment pipeline will automatically trigger on release branch"
-
-  wait-for-qa-deployment:
-    name: Wait for QA Deployment
-    runs-on: ubuntu-latest
-    needs: auto-deploy-to-qa
-    if: github.ref == 'refs/heads/develop'
-    steps:
-      - name: Wait for QA pipeline to start
-        run: |
-          echo "⏳ Waiting for QA deployment to complete..."
-          sleep 120  # Give time for release branch workflow to start and complete
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Wait for QA ECS service stability
-        run: |
-          aws ecs wait services-stable \
-            --cluster ${{ secrets.ECS_CLUSTER_QA }} \
-            --services ${{ secrets.ECS_SERVICE_QA }}
-
-          echo "✅ QA ECS service is stable"
-
-      - name: Verify QA Lambda deployment
-        run: |
-          LAMBDA_STATE=$(aws lambda get-function \
-            --function-name ${{ secrets.LAMBDA_FUNCTION_QA }} \
-            --query 'Configuration.State' \
-            --output text)
-
-          if [ "$LAMBDA_STATE" != "Active" ]; then
-            echo "❌ QA Lambda is not active: $LAMBDA_STATE"
-            exit 1
-          fi
-
-          echo "✅ QA Lambda is active"
-
-  create-prod-release-pr:
-    name: Create PR for PROD Release
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create Pull Request to main
-        uses: repo-sync/pull-request@v2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          source_branch: release
-          destination_branch: main
-          pr_title: '🚀 Production Release: Deploy to PROD'
-          pr_body: |
-            ## 🎯 Production Release Candidate
-
-            This release has been successfully deployed and tested in:
-            - ✅ **DEV Environment** - All tests passed
-            - ✅ **QA Environment** - All tests passed
-
-            ### Deployment Summary
-            - **Source Branch:** `release`
-            - **Commit:** ${{ github.sha }}
-            - **Author:** ${{ github.event.head_commit.author.name }}
-
-            ### Quality Gates Passed
-            - ✅ DEV Unit Tests
-            - ✅ DEV Infrastructure Tests
-
-            ### ⚠️ Important
-            **Merging this PR will deploy to PRODUCTION environment.**
-
-            Please ensure:
-            1. All changes have been reviewed
-            2. QA sign-off has been obtained
-            3. Deployment window is appropriate
-
-            ### Next Steps
-            1. Review all changes in this PR
-            2. Obtain 2 approvals (as per branch protection rules)
-            3. Merge to trigger PROD deployment
-          pr_label: 'production-release,needs-review,qa-approved'
-
-  deployment-notification:
-    name: Send Deployment Notification
-    runs-on: ubuntu-latest
-    needs: [determine-environment, deploy-ecs, deploy-lambda]
-    if: always()
-    steps:
-      - name: Check deployment results
-        id: check-status
-        run: |
-          ENV="${{ needs.determine-environment.outputs.environment }}"
-          ECS_STATUS="${{ needs.deploy-ecs.result }}"
-          LAMBDA_STATUS="${{ needs.deploy-lambda.result }}"
-
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📊 Deployment Summary for ${ENV^^} Environment"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-          echo "🐳 ECS Deployment:"
-          if [[ "${ECS_STATUS}" == "success" ]]; then
-            echo "   ✅ SUCCESS"
-          elif [[ "${ECS_STATUS}" == "skipped" ]]; then
-            echo "   ⚪ SKIPPED"
-          else
-            echo "   ❌ FAILED"
-          fi
-          echo ""
-          echo "⚡ Lambda Deployment:"
-          if [[ "${LAMBDA_STATUS}" == "success" ]]; then
-            echo "   ✅ SUCCESS"
-          elif [[ "${LAMBDA_STATUS}" == "skipped" ]]; then
-            echo "   ⚪ SKIPPED (not configured)"
-          else
-            echo "   ❌ FAILED"
-          fi
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-          # Determine overall status
-          OVERALL_SUCCESS=true
-
-          # ECS must succeed (unless skipped)
-          if [[ "${ECS_STATUS}" != "success" && "${ECS_STATUS}" != "skipped" ]]; then
-            OVERALL_SUCCESS=false
-          fi
-
-          # Lambda can be skipped, but if it ran, it must succeed
-          if [[ "${LAMBDA_STATUS}" == "failure" ]]; then
-            OVERALL_SUCCESS=false
-          fi
-
-          if [[ "${OVERALL_SUCCESS}" == "true" ]]; then
-            echo "status=success" >> $GITHUB_OUTPUT
-            echo ""
-            echo "✅ Overall Status: SUCCESS"
-          else
-            echo "status=failure" >> $GITHUB_OUTPUT
-            echo ""
-            echo "❌ Overall Status: FAILURE"
-          fi
-
-      - name: Report success
-        if: steps.check-status.outputs.status == 'success'
-        run: |
-          echo "🎉 Deployment to ${{ needs.determine-environment.outputs.environment }} environment completed successfully!"
-
-      - name: Report failure
-        if: steps.check-status.outputs.status == 'failure'
-        run: |
-          echo "💥 Deployment to ${{ needs.determine-environment.outputs.environment }} environment failed!"
-          echo ""
-          echo "Check the logs above for details."
-          exit 1
+# name: Deployment Pipeline
+
+# on:
+#   push:
+#     branches:
+#       - develop # Deploy to DEV
+#       - release # Deploy to QA
+#       - main # Deploy to PROD
+
+# env:
+#   AWS_REGION: ${{ secrets.AWS_REGION }}
+#   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+#   NODE_VERSION: '20.x'
+#   PNPM_VERSION: '8'
+
+# jobs:
+#   determine-environment:
+#     name: Determine Target Environment
+#     runs-on: ubuntu-latest
+#     outputs:
+#       environment: ${{ steps.set-env.outputs.environment }}
+#       ecs-cluster: ${{ steps.set-env.outputs.ecs-cluster }}
+#       ecs-service: ${{ steps.set-env.outputs.ecs-service }}
+#       lambda-function: ${{ steps.set-env.outputs.lambda-function }}
+#       s3-bucket: ${{ steps.set-env.outputs.s3-bucket }}
+#       dynamodb-table: ${{ steps.set-env.outputs.dynamodb-table }}
+#       sns-topic-arn: ${{ steps.set-env.outputs.sns-topic-arn }}
+#       sqs-queue-url: ${{ steps.set-env.outputs.sqs-queue-url }}
+#     steps:
+#       - name: Set environment based on branch
+#         id: set-env
+#         run: |
+#           # Determine environment from branch
+#           if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+#             ENV="dev"
+#             ECS_CLUSTER="${{ secrets.ECS_CLUSTER_DEV }}"
+#             ECS_SERVICE="${{ secrets.ECS_SERVICE_DEV }}"
+#             LAMBDA_FUNCTION="${{ secrets.LAMBDA_FUNCTION_DEV }}"
+#             S3_BUCKET="${{ secrets.S3_BUCKET_DEV }}"
+#             DYNAMODB_TABLE="${{ secrets.DYNAMODB_TABLE_DEV }}"
+#             SNS_TOPIC="${{ secrets.SNS_TOPIC_ARN_DEV }}"
+#             SQS_QUEUE="${{ secrets.SQS_QUEUE_URL_DEV }}"
+#           elif [[ "${{ github.ref }}" == "refs/heads/release" ]]; then
+#             ENV="qa"
+#             ECS_CLUSTER="${{ secrets.ECS_CLUSTER_QA }}"
+#             ECS_SERVICE="${{ secrets.ECS_SERVICE_QA }}"
+#             LAMBDA_FUNCTION="${{ secrets.LAMBDA_FUNCTION_QA }}"
+#             S3_BUCKET="${{ secrets.S3_BUCKET_QA }}"
+#             DYNAMODB_TABLE="${{ secrets.DYNAMODB_TABLE_QA }}"
+#             SNS_TOPIC="${{ secrets.SNS_TOPIC_ARN_QA }}"
+#             SQS_QUEUE="${{ secrets.SQS_QUEUE_URL_QA }}"
+#           elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+#             ENV="prod"
+#             ECS_CLUSTER="${{ secrets.ECS_CLUSTER_PROD }}"
+#             ECS_SERVICE="${{ secrets.ECS_SERVICE_PROD }}"
+#             LAMBDA_FUNCTION="${{ secrets.LAMBDA_FUNCTION_PROD }}"
+#             S3_BUCKET="${{ secrets.S3_BUCKET_PROD }}"
+#             DYNAMODB_TABLE="${{ secrets.DYNAMODB_TABLE_PROD }}"
+#             SNS_TOPIC="${{ secrets.SNS_TOPIC_ARN_PROD }}"
+#             SQS_QUEUE="${{ secrets.SQS_QUEUE_URL_PROD }}"
+#           else
+#             echo "❌ Unknown branch: ${{ github.ref }}"
+#             exit 1
+#           fi
+
+#           # Output all values
+#           echo "environment=${ENV}" >> $GITHUB_OUTPUT
+#           echo "ecs-cluster=${ECS_CLUSTER}" >> $GITHUB_OUTPUT
+#           echo "ecs-service=${ECS_SERVICE}" >> $GITHUB_OUTPUT
+#           echo "lambda-function=${LAMBDA_FUNCTION}" >> $GITHUB_OUTPUT
+#           echo "s3-bucket=${S3_BUCKET}" >> $GITHUB_OUTPUT
+#           echo "dynamodb-table=${DYNAMODB_TABLE}" >> $GITHUB_OUTPUT
+#           echo "sns-topic-arn=${SNS_TOPIC}" >> $GITHUB_OUTPUT
+#           echo "sqs-queue-url=${SQS_QUEUE}" >> $GITHUB_OUTPUT
+
+#           # Debug output
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "🔧 Environment Configuration for: ${ENV}"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "Environment: ${ENV}"
+#           echo "ECS Cluster: ${ECS_CLUSTER:-'NOT SET'}"
+#           echo "ECS Service: ${ECS_SERVICE:-'NOT SET'}"
+#           echo "Lambda Function: ${LAMBDA_FUNCTION:-'NOT SET'}"
+#           echo "S3 Bucket: ${S3_BUCKET:-'NOT SET'}"
+#           echo "DynamoDB Table: ${DYNAMODB_TABLE:-'NOT SET'}"
+#           echo "SNS Topic: ${SNS_TOPIC:-'NOT SET'}"
+#           echo "SQS Queue: ${SQS_QUEUE:-'NOT SET'}"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+#       - name: Validate required secrets
+#         run: |
+#           ENV="${{ steps.set-env.outputs.environment }}"
+#           MISSING_SECRETS=()
+
+#           # Check each required secret
+#           if [ -z "${{ steps.set-env.outputs.lambda-function }}" ]; then
+#             MISSING_SECRETS+=("LAMBDA_FUNCTION_${ENV^^}")
+#           fi
+
+#           if [ -z "${{ steps.set-env.outputs.ecs-cluster }}" ]; then
+#             MISSING_SECRETS+=("ECS_CLUSTER_${ENV^^}")
+#           fi
+
+#           if [ -z "${{ steps.set-env.outputs.ecs-service }}" ]; then
+#             MISSING_SECRETS+=("ECS_SERVICE_${ENV^^}")
+#           fi
+
+#           if [ -z "${{ steps.set-env.outputs.s3-bucket }}" ]; then
+#             MISSING_SECRETS+=("S3_BUCKET_${ENV^^}")
+#           fi
+
+#           if [ -z "${{ steps.set-env.outputs.dynamodb-table }}" ]; then
+#             MISSING_SECRETS+=("DYNAMODB_TABLE_${ENV^^}")
+#           fi
+
+#           # Report missing secrets
+#           if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
+#             echo "❌ Missing required GitHub Secrets for ${ENV} environment:"
+#             for secret in "${MISSING_SECRETS[@]}"; do
+#               echo "  - ${secret}"
+#             done
+#             echo ""
+#             echo "📝 Add these secrets at:"
+#             echo "   Settings → Secrets and variables → Actions → New repository secret"
+#             echo ""
+#             echo "Example secret names and values:"
+#             echo "  LAMBDA_FUNCTION_${ENV^^}=image-recognition-lambda-${ENV}"
+#             echo "  ECS_CLUSTER_${ENV^^}=image-recognition-cluster-${ENV}"
+#             echo "  ECS_SERVICE_${ENV^^}=image-recognition-service-${ENV}"
+#             echo "  S3_BUCKET_${ENV^^}=image-recognition-${ENV}-bucket"
+#             echo "  DYNAMODB_TABLE_${ENV^^}=image-recognition-${ENV}-table"
+#             exit 1
+#           fi
+
+#           echo "✅ All required secrets are configured for ${ENV} environment"
+
+#   deploy-lambda:
+#     name: Deploy Lambda Function
+#     runs-on: ubuntu-latest
+#     needs: determine-environment
+#     # if: needs.determine-environment.outputs.lambda-function != ''
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Debug outputs from determine-environment
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "📋 Outputs from determine-environment job:"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "Environment: '${{ needs.determine-environment.outputs.environment }}'"
+#           echo "Lambda Function: '${{ needs.determine-environment.outputs.lambda-function }}'"
+#           echo "S3 Bucket: '${{ needs.determine-environment.outputs.s3-bucket }}'"
+#           echo "DynamoDB Table: '${{ needs.determine-environment.outputs.dynamodb-table }}'"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+#       - name: Validate Lambda function name
+#         run: |
+#           LAMBDA_FUNC="${{ needs.determine-environment.outputs.lambda-function }}"
+
+#           if [ -z "${LAMBDA_FUNC}" ]; then
+#             echo "❌ Lambda function name is empty!"
+#             echo ""
+#             echo "This usually means the GitHub Secret is not set."
+#             echo "Check GitHub Secrets for:"
+#             echo "  - LAMBDA_FUNCTION_DEV"
+#             echo "  - LAMBDA_FUNCTION_QA"
+#             echo "  - LAMBDA_FUNCTION_PROD"
+#             echo ""
+#             echo "Current branch: ${{ github.ref }}"
+#             echo "Detected environment: ${{ needs.determine-environment.outputs.environment }}"
+#             exit 1
+#           fi
+
+#           echo "✅ Lambda function name: ${LAMBDA_FUNC}"
+
+#       - name: Create deployment package
+#         run: |
+#           cd terraform/modules/tf-application/lambda
+
+#           # Install Python dependencies if requirements.txt exists
+#           if [ -f requirements.txt ]; then
+#             echo "📦 Installing Python dependencies..."
+#             pip install -r requirements.txt -t .
+#           fi
+
+#           # Create zip excluding unnecessary files
+#           echo "📦 Creating deployment package..."
+#           zip -r lambda-deployment.zip . \
+#             -x "*.pyc" \
+#             -x "__pycache__/*" \
+#             -x "*.git*" \
+#             -x "tests/*" \
+#             -x "*.md"
+
+#           echo "✅ Deployment package created: $(du -h lambda-deployment.zip | cut -f1)"
+
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Upload to S3
+#         run: |
+#           ENV="${{ needs.determine-environment.outputs.environment }}"
+#           S3_BUCKET="${{ secrets.S3_LAMBDA_BUCKET }}"
+
+#           if [ -z "${S3_BUCKET}" ]; then
+#             echo "❌ S3_LAMBDA_BUCKET secret is not set!"
+#             exit 1
+#           fi
+
+#           echo "📤 Uploading Lambda package to S3..."
+#           echo "  Bucket: ${S3_BUCKET}"
+#           echo "  Key: ${ENV}/lambda-deployment-${{ github.sha }}.zip"
+
+#           aws s3 cp terraform/modules/tf-application/lambda/lambda-deployment.zip \
+#             s3://${S3_BUCKET}/${ENV}/lambda-deployment-${{ github.sha }}.zip
+
+#           echo "✅ Upload complete"
+
+#       - name: Update Lambda function
+#         run: |
+#           LAMBDA_FUNC="${{ needs.determine-environment.outputs.lambda-function }}"
+#           ENV="${{ needs.determine-environment.outputs.environment }}"
+#           S3_BUCKET="${{ secrets.S3_LAMBDA_BUCKET }}"
+
+#           echo "🔄 Updating Lambda function..."
+#           echo "  Function: ${LAMBDA_FUNC}"
+#           echo "  S3 Bucket: ${S3_BUCKET}"
+#           echo "  S3 Key: ${ENV}/lambda-deployment-${{ github.sha }}.zip"
+
+#           aws lambda update-function-code \
+#             --function-name "${LAMBDA_FUNC}" \
+#             --s3-bucket "${S3_BUCKET}" \
+#             --s3-key "${ENV}/lambda-deployment-${{ github.sha }}.zip"
+
+#       - name: Wait for Lambda update to complete
+#         run: |
+#           LAMBDA_FUNC="${{ needs.determine-environment.outputs.lambda-function }}"
+
+#           echo "⏳ Waiting for Lambda update to complete..."
+#           aws lambda wait function-updated \
+#             --function-name "${LAMBDA_FUNC}"
+
+#           echo "✅ Lambda function updated successfully"
+
+#       - name: Copy to latest version
+#         run: |
+#           ENV="${{ needs.determine-environment.outputs.environment }}"
+#           S3_BUCKET="${{ secrets.S3_LAMBDA_BUCKET }}"
+
+#           aws s3 cp \
+#             s3://${S3_BUCKET}/${ENV}/lambda-deployment-${{ github.sha }}.zip \
+#             s3://${S3_BUCKET}/${ENV}/lambda-deployment-latest.zip
+
+#           echo "✅ Created latest version reference"
+
+#   deploy-ecs:
+#     name: Deploy to ECS with Environment Variables
+#     runs-on: ubuntu-latest
+#     needs: determine-environment
+#     # if: needs.determine-environment.outputs.ecs-cluster != '' && needs.determine-environment.outputs.ecs-service != ''
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Get current task definition
+#         id: get-task-def
+#         run: |
+#           TASK_DEF_ARN=$(aws ecs describe-services \
+#             --cluster ${{ needs.determine-environment.outputs.ecs-cluster }} \
+#             --service ${{ needs.determine-environment.outputs.ecs-service }} \
+#             --query 'services[0].taskDefinition' \
+#             --output text)
+
+#           echo "current-task-def=${TASK_DEF_ARN}" >> $GITHUB_OUTPUT
+
+#           # Download task definition
+#           aws ecs describe-task-definition \
+#             --task-definition $TASK_DEF_ARN \
+#             --query 'taskDefinition' > task-def.json
+
+#       - name: Update task definition with environment-specific variables
+#         id: update-task-def
+#         run: |
+#           # Use outputs from determine-environment job
+#           S3_BUCKET="${{ needs.determine-environment.outputs.s3-bucket }}"
+#           DYNAMODB_TABLE="${{ needs.determine-environment.outputs.dynamodb-table }}"
+#           SNS_TOPIC="${{ needs.determine-environment.outputs.sns-topic-arn }}"
+#           SQS_QUEUE="${{ needs.determine-environment.outputs.sqs-queue-url }}"
+#           ENV="${{ needs.determine-environment.outputs.environment }}"
+
+#           echo "Injecting environment variables for ${ENV} environment:"
+#           echo "  S3_BUCKET: ${S3_BUCKET}"
+#           echo "  DYNAMODB_TABLE: ${DYNAMODB_TABLE}"
+#           echo "  SNS_TOPIC: ${SNS_TOPIC}"
+#           echo "  SQS_QUEUE: ${SQS_QUEUE}"
+
+#           # Update task definition with environment variables
+#           jq --arg s3_bucket "$S3_BUCKET" \
+#              --arg dynamodb_table "$DYNAMODB_TABLE" \
+#              --arg sns_topic "$SNS_TOPIC" \
+#              --arg sqs_queue "$SQS_QUEUE" \
+#              --arg environment "$ENV" \
+#              --arg region "${{ env.AWS_REGION }}" \
+#              '
+#              .containerDefinitions[0].environment = [
+#                {name: "NODE_ENV", value: "production"},
+#                {name: "ENVIRONMENT", value: $environment},
+#                {name: "AWS_REGION", value: $region},
+#                {name: "AWS_S3_BUCKET_NAME", value: $s3_bucket},
+#                {name: "AWS_DYNAMODB_TABLE_NAME", value: $dynamodb_table},
+#                {name: "AWS_SNS_TOPIC_ARN", value: $sns_topic},
+#                {name: "AWS_SQS_QUEUE_URL", value: $sqs_queue},
+#                {name: "PORT", value: "3000"},
+#                {name: "API_VERSION", value: "v1"},
+#                {name: "API_PREFIX", value: "api"}
+#              ] |
+#              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+#              ' task-def.json > updated-task-def.json
+
+#           cat updated-task-def.json
+
+#       - name: Register new task definition
+#         id: register-task-def
+#         run: |
+#           NEW_TASK_ARN=$(aws ecs register-task-definition \
+#             --cli-input-json file://updated-task-def.json \
+#             --query 'taskDefinition.taskDefinitionArn' \
+#             --output text)
+
+#           echo "new-task-arn=${NEW_TASK_ARN}" >> $GITHUB_OUTPUT
+#           echo "✅ Registered new task definition: ${NEW_TASK_ARN}"
+
+#       - name: Update ECS service with new task definition
+#         run: |
+#           aws ecs update-service \
+#             --cluster ${{ needs.determine-environment.outputs.ecs-cluster }} \
+#             --service ${{ needs.determine-environment.outputs.ecs-service }} \
+#             --task-definition ${{ steps.register-task-def.outputs.new-task-arn }} \
+#             --force-new-deployment
+
+#           echo "✅ ECS service updated with environment-specific configuration"
+
+#       - name: Wait for service stability
+#         run: |
+#           echo "⏳ Waiting for service to stabilize..."
+#           aws ecs wait services-stable \
+#             --cluster ${{ needs.determine-environment.outputs.ecs-cluster }} \
+#             --service ${{ needs.determine-environment.outputs.ecs-service }}
+
+#           echo "✅ Service deployment completed successfully"
+
+#   auto-deploy-to-qa:
+#     name: Auto-Deploy to QA
+#     runs-on: ubuntu-latest
+#     if: github.ref == 'refs/heads/develop'
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+#           token: ${{ secrets.PAT_TOKEN }}
+
+#       - name: Configure Git
+#         run: |
+#           git config user.name "GitHub Actions Bot"
+#           git config user.email "actions@github.com"
+
+#       - name: Fast-forward release branch to develop
+#         run: |
+#           git fetch origin release:release || git fetch origin develop:release
+#           git checkout release
+#           git merge --ff-only origin/develop
+#           git push origin release
+#         continue-on-error: false
+
+#       - name: Confirm QA deployment trigger
+#         run: |
+#           echo "✅ Release branch updated with develop changes"
+#           echo "🚀 QA deployment pipeline will automatically trigger on release branch"
+
+#   wait-for-qa-deployment:
+#     name: Wait for QA Deployment
+#     runs-on: ubuntu-latest
+#     needs: auto-deploy-to-qa
+#     if: github.ref == 'refs/heads/develop'
+#     steps:
+#       - name: Wait for QA pipeline to start
+#         run: |
+#           echo "⏳ Waiting for QA deployment to complete..."
+#           sleep 120  # Give time for release branch workflow to start and complete
+
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ secrets.AWS_REGION }}
+
+#       - name: Wait for QA ECS service stability
+#         run: |
+#           aws ecs wait services-stable \
+#             --cluster ${{ secrets.ECS_CLUSTER_QA }} \
+#             --services ${{ secrets.ECS_SERVICE_QA }}
+
+#           echo "✅ QA ECS service is stable"
+
+#       - name: Verify QA Lambda deployment
+#         run: |
+#           LAMBDA_STATE=$(aws lambda get-function \
+#             --function-name ${{ secrets.LAMBDA_FUNCTION_QA }} \
+#             --query 'Configuration.State' \
+#             --output text)
+
+#           if [ "$LAMBDA_STATE" != "Active" ]; then
+#             echo "❌ QA Lambda is not active: $LAMBDA_STATE"
+#             exit 1
+#           fi
+
+#           echo "✅ QA Lambda is active"
+
+#   create-prod-release-pr:
+#     name: Create PR for PROD Release
+#     runs-on: ubuntu-latest
+#     if: github.ref == 'refs/heads/develop'
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Create Pull Request to main
+#         uses: repo-sync/pull-request@v2
+#         with:
+#           github_token: ${{ secrets.GITHUB_TOKEN }}
+#           source_branch: release
+#           destination_branch: main
+#           pr_title: '🚀 Production Release: Deploy to PROD'
+#           pr_body: |
+#             ## 🎯 Production Release Candidate
+
+#             This release has been successfully deployed and tested in:
+#             - ✅ **DEV Environment** - All tests passed
+#             - ✅ **QA Environment** - All tests passed
+
+#             ### Deployment Summary
+#             - **Source Branch:** `release`
+#             - **Commit:** ${{ github.sha }}
+#             - **Author:** ${{ github.event.head_commit.author.name }}
+
+#             ### Quality Gates Passed
+#             - ✅ DEV Unit Tests
+#             - ✅ DEV Infrastructure Tests
+
+#             ### ⚠️ Important
+#             **Merging this PR will deploy to PRODUCTION environment.**
+
+#             Please ensure:
+#             1. All changes have been reviewed
+#             2. QA sign-off has been obtained
+#             3. Deployment window is appropriate
+
+#             ### Next Steps
+#             1. Review all changes in this PR
+#             2. Obtain 2 approvals (as per branch protection rules)
+#             3. Merge to trigger PROD deployment
+#           pr_label: 'production-release,needs-review,qa-approved'
+
+#   deployment-notification:
+#     name: Send Deployment Notification
+#     runs-on: ubuntu-latest
+#     needs: [determine-environment, deploy-ecs, deploy-lambda]
+#     if: always()
+#     steps:
+#       - name: Check deployment results
+#         id: check-status
+#         run: |
+#           ENV="${{ needs.determine-environment.outputs.environment }}"
+#           ECS_STATUS="${{ needs.deploy-ecs.result }}"
+#           LAMBDA_STATUS="${{ needs.deploy-lambda.result }}"
+
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "📊 Deployment Summary for ${ENV^^} Environment"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo ""
+#           echo "🐳 ECS Deployment:"
+#           if [[ "${ECS_STATUS}" == "success" ]]; then
+#             echo "   ✅ SUCCESS"
+#           elif [[ "${ECS_STATUS}" == "skipped" ]]; then
+#             echo "   ⚪ SKIPPED"
+#           else
+#             echo "   ❌ FAILED"
+#           fi
+#           echo ""
+#           echo "⚡ Lambda Deployment:"
+#           if [[ "${LAMBDA_STATUS}" == "success" ]]; then
+#             echo "   ✅ SUCCESS"
+#           elif [[ "${LAMBDA_STATUS}" == "skipped" ]]; then
+#             echo "   ⚪ SKIPPED (not configured)"
+#           else
+#             echo "   ❌ FAILED"
+#           fi
+#           echo ""
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+#           # Determine overall status
+#           OVERALL_SUCCESS=true
+
+#           # ECS must succeed (unless skipped)
+#           if [[ "${ECS_STATUS}" != "success" && "${ECS_STATUS}" != "skipped" ]]; then
+#             OVERALL_SUCCESS=false
+#           fi
+
+#           # Lambda can be skipped, but if it ran, it must succeed
+#           if [[ "${LAMBDA_STATUS}" == "failure" ]]; then
+#             OVERALL_SUCCESS=false
+#           fi
+
+#           if [[ "${OVERALL_SUCCESS}" == "true" ]]; then
+#             echo "status=success" >> $GITHUB_OUTPUT
+#             echo ""
+#             echo "✅ Overall Status: SUCCESS"
+#           else
+#             echo "status=failure" >> $GITHUB_OUTPUT
+#             echo ""
+#             echo "❌ Overall Status: FAILURE"
+#           fi
+
+#       - name: Report success
+#         if: steps.check-status.outputs.status == 'success'
+#         run: |
+#           echo "🎉 Deployment to ${{ needs.determine-environment.outputs.environment }} environment completed successfully!"
+
+#       - name: Report failure
+#         if: steps.check-status.outputs.status == 'failure'
+#         run: |
+#           echo "💥 Deployment to ${{ needs.determine-environment.outputs.environment }} environment failed!"
+#           echo ""
+#           echo "Check the logs above for details."
+#           exit 1
