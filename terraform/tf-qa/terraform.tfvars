@@ -2,7 +2,6 @@
 environment  = "qa"
 aws_region   = "us-east-1"
 project_name = "image-recognition-api"
-vpc_cidr     = "10.1.0.0/16"
 
 # S3 Configuration
 s3_bucket_force_destroy = true # Can be set to false for safety
