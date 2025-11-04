@@ -75,10 +75,6 @@ lambda-function.zip
 crash.log
 crash.*.log
 
-# Exclude all .tfvars files, which are likely to contain sensitive data
-*.tfvars
-*.tfvars.json
-
 # But allow .tfvars.example template files
 !*.tfvars.example
 
@@ -107,10 +103,6 @@ outputs.json
 **/*.tfstate.*
 **/.terraform/
 **/.terraform.lock.hcl
-
-# Environment-specific files
-**/terraform.tfvars
-!**/terraform.tfvars.example
 
 # Plan files (all variations)
 **/tfplan
