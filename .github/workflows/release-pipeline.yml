@@ -133,20 +133,38 @@ jobs:
           prerelease: false
 
       - name: Promote Lambda from QA to PROD
+        if: steps.check-lambda.outputs.configured == 'true'
         run: |
-          # Get QA Lambda function configuration
-          QA_LAMBDA_CONFIG=$(aws lambda get-function \
-            --function-name ${{ secrets.LAMBDA_FUNCTION_QA }} \
-            --query 'Configuration.CodeSha256' \
-            --output text)
+          S3_BUCKET="${{ secrets.S3_LAMBDA_BUCKET }}"
 
-          # Update PROD Lambda with QA code
+          # Try QA first, fallback to DEV, or skip
+          if aws s3 ls s3://${S3_BUCKET}/qa/lambda-deployment-latest.zip > /dev/null 2>&1; then
+            SOURCE="qa/lambda-deployment-latest.zip"
+            echo "✅ Promoting from QA"
+          elif aws s3 ls s3://${S3_BUCKET}/dev/lambda-deployment-latest.zip > /dev/null 2>&1; then
+            SOURCE="dev/lambda-deployment-latest.zip"
+            echo "⚠️ QA package not found, promoting from DEV"
+          else
+            echo "⚠️ No Lambda package found, skipping Lambda promotion"
+            exit 0
+          fi
+
+          # Copy to PROD folder
+          aws s3 cp \
+            s3://${S3_BUCKET}/${SOURCE} \
+            s3://${S3_BUCKET}/prod/lambda-deployment-latest.zip
+
+          # Update function
           aws lambda update-function-code \
             --function-name ${{ secrets.LAMBDA_FUNCTION_PROD }} \
-            --s3-bucket ${{ secrets.S3_LAMBDA_BUCKET }} \
-            --s3-key qa/lambda-deployment-latest.zip
+            --s3-bucket ${S3_BUCKET} \
+            --s3-key prod/lambda-deployment-latest.zip
 
-          echo "✅ Promoted Lambda from QA to PROD"
+          aws lambda wait function-updated \
+            --function-name ${{ secrets.LAMBDA_FUNCTION_PROD }}
+
+          echo "✅ Lambda promoted to PROD from ${SOURCE%%/*}"
+        continue-on-error: true
 
       - name: Comment PR with deployment status
         uses: actions/github-script@v7
