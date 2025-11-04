@@ -1,9 +1,10 @@
-name: Terraform Apply
+name: Terraform Pipeline
 
 on:
   push:
     branches:
       - develop
+      # - release
       # - main
 
 jobs:
@@ -24,8 +25,10 @@ jobs:
           BRANCH="${GITHUB_REF##*/}"
           if [ "$BRANCH" = "develop" ]; then
             echo "TF_DIR=terraform/tf-dev" >> $GITHUB_ENV
+          elif [ "$BRANCH" = "release" ]; then
+            echo "TF_DIR=terraform/tf-qa" >> $GITHUB_ENV
           else
-            echo "TF_DIR=." >> $GITHUB_ENV
+            echo "TF_DIR=terraform/tf-prod" >> $GITHUB_ENV
           fi
 
       - name: Setup Terraform
@@ -37,6 +40,25 @@ jobs:
         run: terraform init
         working-directory: ${{ env.TF_DIR }}
 
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -out=tfplan
+        working-directory: ${{ env.TF_DIR }}
+
       - name: Terraform Apply
         run: terraform apply -auto-approve
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: Terraform Output
+        if: success()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Terraform Apply Complete"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Outputs:"
+          terraform output -json
         working-directory: ${{ env.TF_DIR }}
