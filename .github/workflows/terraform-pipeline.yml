@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set Terraform directory and environment
+      - name: Set Terraform directory
         run: |
           BRANCH="${GITHUB_REF##*/}"
           if [ "$BRANCH" = "develop" ]; then
@@ -37,8 +37,8 @@ jobs:
             exit 1
           fi
 
-          echo "✅ Environment: ${ENVIRONMENT}"
           echo "✅ Terraform directory: ${TF_DIR}"
+          echo "✅ Environment: ${ENVIRONMENT}"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -47,196 +47,39 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Init
-        run: |
-          echo "🔧 Initializing Terraform for ${{ env.ENVIRONMENT }} environment..."
-          terraform init
+        run: terraform init
         working-directory: ${{ env.TF_DIR }}
 
       - name: Terraform Validate
-        run: |
-          echo "✅ Validating Terraform configuration..."
-          terraform validate
+        run: terraform validate
         working-directory: ${{ env.TF_DIR }}
 
       - name: Terraform Plan
         id: plan
-        run: |
-          echo "📋 Planning Terraform changes..."
-          terraform plan -out=tfplan
+        run: terraform plan -out=tfplan
         working-directory: ${{ env.TF_DIR }}
 
       - name: Terraform Apply
-        run: |
-          echo "🚀 Applying Terraform changes for ${{ env.ENVIRONMENT }} environment..."
-          terraform apply -auto-approve tfplan
-        working-directory: ${{ env.TF_DIR }}
-
-      - name: Get Terraform Outputs
-        id: outputs
-        if: success()
-        run: |
-          echo "📊 Extracting Terraform outputs..."
-
-          # Get outputs as JSON
-          OUTPUTS_JSON=$(terraform output -json)
-
-          # Save to file for processing
-          echo "$OUTPUTS_JSON" > outputs.json
-
-          # Extract specific values using jq
-          echo "outputs-json<<EOF" >> $GITHUB_OUTPUT
-          echo "$OUTPUTS_JSON" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        working-directory: ${{ env.TF_DIR }}
-
-      - name: Display GitHub Secrets Configuration
-        if: success()
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🔐 GitHub Secrets to Configure (${{ env.ENVIRONMENT }} Environment)"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-
-          # Parse and display github_secrets output
-          terraform output -json github_secrets | jq -r '
-            "Add these secrets to your GitHub repository:",
-            "",
-            "Repository Settings → Secrets and variables → Actions → New repository secret",
-            "",
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-            "",
-            to_entries[] | 
-            "Secret Name:  \(.key)\nSecret Value: \(.value)\n" + 
-            "────────────────────────────────────────────────────────────\n"
-          '
+        run: terraform apply -auto-approve tfplan
         working-directory: ${{ env.TF_DIR }}
 
       - name: Display Deployment Information
         if: success()
         run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Terraform Apply Complete - ${{ env.ENVIRONMENT }} Environment"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🚀 Deployment Information (${{ env.ENVIRONMENT }} Environment)"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🚀 Deployment Information:"
           echo ""
 
           terraform output -json deployment_info | jq -r '
-            to_entries[] | 
-            "\(.key | ascii_upcase): \(.value)"
+            "🔗 Application URLs:",
+            "  Application:      \(.application_url)",
+            "  Health Check:     \(.health_check_url)",
+            "  API Docs:         \(.api_docs_url)"
           '
 
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         working-directory: ${{ env.TF_DIR }}
-
-      - name: Display Environment Resources
-        if: success()
-        run: |
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🏗️  Environment Resources (${{ env.ENVIRONMENT }})"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-
-          echo "📦 Infrastructure:"
-          terraform output -json environment_outputs | jq -r '
-            "  VPC ID:          \(.vpc_id)",
-            "  S3 Bucket:       \(.s3_bucket_name)",
-            "  DynamoDB Table:  \(.dynamodb_table_name)",
-            "  SQS Queue:       \(.sqs_queue_url)",
-            "  SNS Topic:       \(.sns_topic_arn)"
-          '
-
-          echo ""
-          echo "🐳 Application:"
-          terraform output -json application_outputs | jq -r '
-            "  ECS Cluster:     \(.ecs_cluster_name)",
-            "  ECS Service:     \(.ecs_service_name)",
-            "  Lambda Function: \(.lambda_function_name)",
-            "  Load Balancer:   \(.alb_dns_name)"
-          '
-
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        working-directory: ${{ env.TF_DIR }}
-
-      - name: Terraform Apply Summary
-        if: success()
-        run: |
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ Terraform Apply Complete for ${{ env.ENVIRONMENT }} Environment"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-          echo "📋 Next Steps:"
-          echo "  1. Copy the GitHub Secrets above to your repository settings"
-          echo "  2. Test the application endpoints listed in Deployment Information"
-          echo "  3. Verify all resources are running correctly in AWS Console"
-          echo ""
-          echo "🔗 Quick Links:"
-          echo "  AWS Console: https://console.aws.amazon.com"
-          echo "  GitHub Secrets: https://github.com/${{ github.repository }}/settings/secrets/actions"
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-      - name: Save outputs to artifact
-        if: success()
-        run: |
-          # Create outputs directory
-          mkdir -p terraform-outputs
-
-          # Save all outputs to separate files
-          terraform output -json github_secrets > terraform-outputs/github-secrets.json
-          terraform output -json deployment_info > terraform-outputs/deployment-info.json
-          terraform output -json environment_outputs > terraform-outputs/environment-outputs.json
-          terraform output -json application_outputs > terraform-outputs/application-outputs.json
-
-          # Create a formatted text file
-          cat > terraform-outputs/README.md << 'EOF'
-          # Terraform Outputs - ${{ env.ENVIRONMENT }} Environment
-
-          ## GitHub Secrets Configuration
-
-          Copy these values to GitHub Repository Settings → Secrets and variables → Actions:
-
-          ```bash
-          EOF
-
-          terraform output -json github_secrets | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> terraform-outputs/README.md
-
-          cat >> terraform-outputs/README.md << 'EOF'
-          ```
-
-          ## Deployment Information
-
-          EOF
-
-          terraform output -json deployment_info | jq -r 'to_entries[] | "- **\(.key)**: `\(.value)`"' >> terraform-outputs/README.md
-
-          echo "" >> terraform-outputs/README.md
-          echo "Generated: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> terraform-outputs/README.md
-        working-directory: ${{ env.TF_DIR }}
-
-      - name: Upload Terraform outputs
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-outputs-${{ env.ENVIRONMENT }}
-          path: ${{ env.TF_DIR }}/terraform-outputs/
-          retention-days: 30
-
-      - name: Comment PR with outputs (if PR)
-        if: github.event_name == 'pull_request' && success()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const outputsPath = '${{ env.TF_DIR }}/terraform-outputs/README.md';
-            const outputs = fs.readFileSync(outputsPath, 'utf8');
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🏗️ Terraform Outputs - ${{ env.ENVIRONMENT }}\n\n${outputs}`
-            });
