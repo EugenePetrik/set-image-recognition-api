@@ -1,0 +1,63 @@
+name: Build and Push Docker image to ECR
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+      IMAGE_VERSION: v1.${{ github.run_number }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image URI
+        id: set-image-uri
+        run: |
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_VERSION }}"
+          echo "IMAGE_URI=${IMAGE_URI}" >> $GITHUB_ENV
+          echo "image-uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
+          echo "✅ Image URI: ${IMAGE_URI}"
+
+      - name: Build Docker image
+        run: |
+          echo "Building image: ${{ env.IMAGE_URI }}"
+          docker build \
+            --platform linux/amd64 \
+            -t "${{ env.IMAGE_URI }}" \
+            .
+
+      - name: Push image to ECR
+        run: |
+          echo "Pushing image: ${{ env.IMAGE_URI }}"
+          docker push "${{ env.IMAGE_URI }}"
+
+      - name: Show pushed image
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Successfully pushed Docker image"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Image URI: ${{ env.IMAGE_URI }}"
+          echo "Registry: ${{ steps.login-ecr.outputs.registry }}"
+          echo "Repository: ${{ env.ECR_REPOSITORY }}"
+          echo "Tag: ${{ env.IMAGE_VERSION }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

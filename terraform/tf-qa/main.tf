@@ -15,6 +15,16 @@ provider "aws" {
   region = var.aws_region
 }
 
+terraform {
+  backend "s3" {
+    bucket         = "image-recognition-dev-bucket-354583059859"
+    key            = "state/qa/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "your-terraform-lock-table"
+    encrypt        = true
+  }
+}
+
 # Get current AWS account ID
 data "aws_caller_identity" "current" {}
 
