@@ -64,7 +64,7 @@ jobs:
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
-          container-name: ${{ inputs.ecs_service }}
+          container-name: image-recognition-api-api
           image: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ inputs.region }}.amazonaws.com/${{ inputs.ecr_repository }}:${{ inputs.tag }}
 
       - name: Deploy to Amazon ECS service
