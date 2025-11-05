@@ -1,0 +1,85 @@
+name: Terraform Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+      # - release
+      # - main
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set Terraform directory
+        run: |
+          BRANCH="${GITHUB_REF##*/}"
+          if [ "$BRANCH" = "develop" ]; then
+            echo "TF_DIR=terraform/tf-dev" >> $GITHUB_ENV
+            echo "ENVIRONMENT=DEV" >> $GITHUB_ENV
+          elif [ "$BRANCH" = "release" ]; then
+            echo "TF_DIR=terraform/tf-qa" >> $GITHUB_ENV
+            echo "ENVIRONMENT=QA" >> $GITHUB_ENV
+          elif [ "$BRANCH" = "main" ]; then
+            echo "TF_DIR=terraform/tf-prod" >> $GITHUB_ENV
+            echo "ENVIRONMENT=PROD" >> $GITHUB_ENV
+          else
+            echo "❌ Unknown branch: $BRANCH"
+            exit 1
+          fi
+
+          echo "✅ Terraform directory: ${TF_DIR}"
+          echo "✅ Environment: ${ENVIRONMENT}"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -out=tfplan
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_DIR }}
+
+      - name: Display Deployment Information
+        if: success()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Terraform Apply Complete - ${{ env.ENVIRONMENT }} Environment"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🚀 Deployment Information:"
+          echo ""
+
+          terraform output -json deployment_info | jq -r '
+            "🔗 Application URLs:",
+            "  Application:      \(.application_url)",
+            "  Health Check:     \(.health_check_url)",
+            "  API Docs:         \(.api_docs_url)"
+          '
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        working-directory: ${{ env.TF_DIR }}
