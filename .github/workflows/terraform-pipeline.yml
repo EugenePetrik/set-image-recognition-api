@@ -1,11 +1,7 @@
 name: Terraform Pipeline
 
 on:
-  push:
-    branches:
-      - develop
-      # - release
-      # - main
+  workflow_call:
 
 jobs:
   terraform:
