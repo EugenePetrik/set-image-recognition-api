@@ -23,12 +23,17 @@ on:
         description: 'ECS service name'
         required: true
         type: string
-        default: 'image-recognition-api-dev-cluster'
+        default: 'image-recognition-api-dev-service'
+      task_definition:
+        description: 'Task definition name'
+        required: true
+        type: string
+        default: 'image-recognition-api-dev-task'
       ecs_cluster:
         description: 'ECS cluster name'
         required: true
         type: string
-        default: 'image-recognition-api-dev-service'
+        default: 'image-recognition-api-dev-cluster'
 
 jobs:
   deploy:
@@ -52,7 +57,7 @@ jobs:
 
       - name: Download task definition
         run: |
-          aws ecs describe-task-definition --task-definition ${{ inputs.ecs_service }} --query taskDefinition > task-definition.json
+          aws ecs describe-task-definition --task-definition ${{ inputs.task_definition }} --query taskDefinition > task-definition.json
 
       - name: Render Amazon ECS task definition
         id: render-web-container
