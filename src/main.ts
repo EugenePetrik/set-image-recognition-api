@@ -19,7 +19,7 @@ async function bootstrap() {
 
   // Swagger/OpenAPI setup
   const config = new DocumentBuilder()
-    .setTitle('Image Recognition API Docs')
+    .setTitle('Image Recognition API Docs123')
     .setDescription('A comprehensive API for image upload, storage, and AI-powered recognition using AWS services')
     .setVersion(version)
     .addTag('health', 'Health check endpoints')
