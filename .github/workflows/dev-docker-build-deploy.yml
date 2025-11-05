@@ -1,0 +1,119 @@
+name: Build and Deploy DEV App Version
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+      IMAGE_VERSION: v1.${{ github.run_number }}
+
+    outputs:
+      image-version: ${{ env.IMAGE_VERSION }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image URI
+        id: set-image-uri
+        run: |
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_VERSION }}"
+          echo "IMAGE_URI=${IMAGE_URI}" >> $GITHUB_ENV
+          echo "image-uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
+          echo "✅ Image URI: ${IMAGE_URI}"
+
+      - name: Build Docker image
+        run: |
+          echo "Building image: ${{ env.IMAGE_URI }}"
+          docker build \
+            --platform linux/amd64 \
+            -t "${{ env.IMAGE_URI }}" \
+            .
+
+      - name: Push image to ECR
+        run: |
+          echo "Pushing image: ${{ env.IMAGE_URI }}"
+          docker push "${{ env.IMAGE_URI }}"
+
+      - name: Show pushed image
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Successfully pushed Docker image"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Image URI: ${{ env.IMAGE_URI }}"
+          echo "Registry: ${{ steps.login-ecr.outputs.registry }}"
+          echo "Repository: ${{ env.ECR_REPOSITORY }}"
+          echo "Tag: ${{ env.IMAGE_VERSION }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  ecs-deploy:
+    needs: docker-build
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      IMAGE_VERSION: v1.${{ github.run_number }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition 'image-recognition-api-dev-task' \
+            --query taskDefinition > task-definition.json
+
+      - name: Render Amazon ECS task definition
+        id: render-web-container
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: image-recognition-api-api
+          image: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/image-recognition-api:${{ needs.docker-build.outputs.image-version }}
+
+      - name: Deploy to Amazon ECS service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.render-web-container.outputs.task-definition }}
+          service: 'image-recognition-api-dev-service'
+          cluster: 'image-recognition-api-dev-cluster'
+          wait-for-service-stability: true
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ ECS Deployment Complete"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Cluster: image-recognition-api-dev-cluster"
+          echo "Service: image-recognition-api-dev-service"
+          echo "Image: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/image-recognition-api:${{ needs.docker-build.outputs.image-version }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
