@@ -16,7 +16,6 @@ jobs:
       IMAGE_VERSION: v1.${{ github.run_number }}
 
     outputs:
-      image-uri: ${{ steps.set-image-uri.outputs.image-uri }}
       image-version: ${{ env.IMAGE_VERSION }}
 
     steps:
@@ -98,7 +97,7 @@ jobs:
         with:
           task-definition: task-definition.json
           container-name: image-recognition-api-api
-          image: ${{ needs.docker-build.outputs.image-uri }}
+          image: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/image-recognition-api:${{ needs.docker-build.outputs.image-version }}
 
       - name: Deploy to Amazon ECS service
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
@@ -116,5 +115,5 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "Cluster: image-recognition-api-dev-cluster"
           echo "Service: image-recognition-api-dev-service"
-          echo "Image: ${{ needs.docker-build.outputs.image-uri }}"
+          echo "Image: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/image-recognition-api:${{ needs.docker-build.outputs.image-version }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
