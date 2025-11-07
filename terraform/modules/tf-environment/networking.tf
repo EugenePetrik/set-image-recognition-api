@@ -93,9 +93,9 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "this" {
-  for_each       = aws_subnet.public
-  allocation_id  = aws_eip.nat[each.key].id
-  subnet_id      = each.value.id
+  for_each          = aws_subnet.public
+  allocation_id     = aws_eip.nat[each.key].id
+  subnet_id         = each.value.id
   connectivity_type = "public"
 
   tags = merge(var.common_tags, {
@@ -218,7 +218,7 @@ resource "aws_security_group" "vpc_endpoints" {
 # VPC endpoints
 ####################
 locals {
-  private_subnet_ids = values(aws_subnet.private)[*].id
+  private_subnet_ids      = values(aws_subnet.private)[*].id
   private_route_table_ids = values(aws_route_table.private)[*].id
 }
 
