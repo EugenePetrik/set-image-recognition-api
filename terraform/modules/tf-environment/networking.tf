@@ -292,11 +292,11 @@ resource "aws_vpc_endpoint" "dynamodb" {
 
 # Interface endpoints
 resource "aws_vpc_endpoint" "ecr_api" {
-  vpc_id             = aws_vpc.this.id
-  service_name       = "com.amazonaws.${var.aws_region}.ecr.api"
-  vpc_endpoint_type  = "Interface"
-  subnet_ids         = local.private_subnet_ids
-  security_group_ids = [aws_security_group.vpc_endpoints.id]
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${var.aws_region}.ecr.api"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = local.private_subnet_ids
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
   private_dns_enabled = true
 
   tags = merge(var.common_tags, {
@@ -307,11 +307,11 @@ resource "aws_vpc_endpoint" "ecr_api" {
 }
 
 resource "aws_vpc_endpoint" "ecr_dkr" {
-  vpc_id             = aws_vpc.this.id
-  service_name       = "com.amazonaws.${var.aws_region}.ecr.dkr"
-  vpc_endpoint_type  = "Interface"
-  subnet_ids         = local.private_subnet_ids
-  security_group_ids = [aws_security_group.vpc_endpoints.id]
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${var.aws_region}.ecr.dkr"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = local.private_subnet_ids
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
   private_dns_enabled = true
 
   tags = merge(var.common_tags, {
@@ -322,11 +322,11 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
 }
 
 resource "aws_vpc_endpoint" "logs" {
-  vpc_id             = aws_vpc.this.id
-  service_name       = "com.amazonaws.${var.aws_region}.logs"
-  vpc_endpoint_type  = "Interface"
-  subnet_ids         = local.private_subnet_ids
-  security_group_ids = [aws_security_group.vpc_endpoints.id]
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${var.aws_region}.logs"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = local.private_subnet_ids
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
   private_dns_enabled = true
 
   tags = merge(var.common_tags, {
