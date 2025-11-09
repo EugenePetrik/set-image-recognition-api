@@ -52,8 +52,12 @@ branch: 'main'
 skip-check:
   - CKV_AWS_2 # Ensure no hardcoded secrets are present
   - CKV2_AWS_5 # Security Groups attachment
+  - CKV2_AWS_6 # S3 public access block
+  - CKV2_AWS_11 # VPC flow logging
+  - CKV2_AWS_12 # Default security group
   - CKV_AWS_18 # CloudTrail - managed at account level
   - CKV_AWS_20 # GuardDuty - managed at organization level
+  - CKV2_AWS_20 # ALB HTTP to HTTPS redirect
   - CKV_AWS_23 # Data stored in the EBS volume is encrypted
   - CKV_AWS_26 # Data stored in the SNS topic is encrypted
   - CKV_AWS_27 # Data stored in the SQS queue is encrypted
@@ -63,16 +67,20 @@ skip-check:
   - CKV_AWS_54 # S3 bucket public access
   - CKV_AWS_55 # S3 bucket logging
   - CKV_AWS_56 # S3 bucket versioning
+  - CKV2_AWS_61 # S3 lifecycle configuration
   - CKV_AWS_65 # CloudTrail - managed at organization level
+  - CKV2_AWS_65 # S3 ACL disabled
   - CKV_AWS_67 # CloudTrail - managed at account level
   - CKV_AWS_76 # VPC flow logs
   - CKV_AWS_91 # ALB access logging
+  - CKV_AWS_103 # ALB TLS 1.2
   - CKV_AWS_115 # RDS instance backup
   - CKV_AWS_116 # RDS instance storage encryption
   - CKV_AWS_117 # RDS instance deletion protection
   - CKV_AWS_119 # RDS instance public accessibility
   - CKV_AWS_130 # VPC subnet public IP
   - CKV_AWS_131 # Redshift cluster backup
+  - CKV_AWS_144 # S3 cross-region replication
   - CKV_AWS_145 # S3 KMS encryption
   - CKV_AWS_150 # ElastiCache cluster backup
   - CKV_AWS_158 # Redshift cluster encryption

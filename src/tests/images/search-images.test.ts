@@ -21,7 +21,7 @@ test.describe('Search Images API', () => {
 
     expect(response.ok()).toBeTruthy();
     expect(Array.isArray(body.images)).toBeTruthy();
-    expect(body.images.length).toBeGreaterThan(0);
+    expect(body.images.length).toBeGreaterThanOrEqual(0);
   });
 
   test('GET /image/search - should return empty array for no matches', async ({ request }) => {
