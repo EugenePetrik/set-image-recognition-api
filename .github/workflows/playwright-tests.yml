@@ -60,26 +60,6 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps
 
-      - name: Wait for API to be ready
-        run: |
-          echo "🔍 Checking if API is available at: ${{ env.API_BASE_URL }}"
-
-          MAX_ATTEMPTS=30
-          ATTEMPT=0
-
-          until curl -f -s -o /dev/null "${{ env.API_BASE_URL }}/api/v1/health" || [ $ATTEMPT -eq $MAX_ATTEMPTS ]; do
-            ATTEMPT=$((ATTEMPT + 1))
-            echo "⏳ Waiting for API... (Attempt $ATTEMPT/$MAX_ATTEMPTS)"
-            sleep 2
-          done
-
-          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-            echo "❌ API is not responding after $MAX_ATTEMPTS attempts"
-            exit 1
-          fi
-
-          echo "✅ API is ready!"
-
       - name: Run API tests
         run: pnpm run test:api
         env:

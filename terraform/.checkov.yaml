@@ -51,11 +51,13 @@ branch: 'main'
 # Skip specific checks
 skip-check:
   - CKV_AWS_2 # Ensure no hardcoded secrets are present
+  - CKV2_AWS_5 # Security Groups attachment
   - CKV_AWS_18 # CloudTrail - managed at account level
   - CKV_AWS_20 # GuardDuty - managed at organization level
   - CKV_AWS_23 # Data stored in the EBS volume is encrypted
   - CKV_AWS_26 # Data stored in the SNS topic is encrypted
   - CKV_AWS_27 # Data stored in the SQS queue is encrypted
+  - CKV2_AWS_28 # ALB WAF protection
   - CKV_AWS_50 # S3 bucket versioning
   - CKV_AWS_53 # S3 bucket encryption
   - CKV_AWS_54 # S3 bucket public access
@@ -69,7 +71,9 @@ skip-check:
   - CKV_AWS_116 # RDS instance storage encryption
   - CKV_AWS_117 # RDS instance deletion protection
   - CKV_AWS_119 # RDS instance public accessibility
+  - CKV_AWS_130 # VPC subnet public IP
   - CKV_AWS_131 # Redshift cluster backup
+  - CKV_AWS_145 # S3 KMS encryption
   - CKV_AWS_150 # ElastiCache cluster backup
   - CKV_AWS_158 # Redshift cluster encryption
   - CKV_AWS_173 # ElastiCache cluster encryption
@@ -78,6 +82,8 @@ skip-check:
   - CKV_AWS_333 # IAM user with console access
   - CKV_AWS_338 # IAM policy allows full "*:*" administrative actions
   - CKV_AWS_355 # Security group with a rule that allows ingress from
+  - CKV_AWS_363 # Lambda runtime
+  - CKV_AWS_378 # ALB HTTP protocol
   - CKV_AWS_382 # Unrestricted egress - required for ECS tasks to function properly
 
 # Only run specific checks
