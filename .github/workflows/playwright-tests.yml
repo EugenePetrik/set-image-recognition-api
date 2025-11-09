@@ -2,9 +2,9 @@ name: Playwright API Tests
 
 on:
   push:
-    branches: [release]
+    branches: [develop, release]
   pull_request:
-    branches: [release]
+    branches: [develop, release]
 
 env:
   NODE_VERSION: '20.x'
@@ -18,6 +18,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set API Base URL based on branch
+        id: set-api-url
+        run: |
+          BRANCH="${{ github.head_ref || github.ref_name }}"
+
+          echo "Branch: $BRANCH"
+
+          if [ "$BRANCH" = "develop" ]; then
+            API_URL="${{ secrets.API_BASE_URL_DEV }}"
+            ENV_NAME="DEV"
+          elif [ "$BRANCH" = "release" ]; then
+            API_URL="${{ secrets.API_BASE_URL_QA }}"
+            ENV_NAME="QA"
+          else
+            API_URL="${{ secrets.API_BASE_URL_DEV }}"
+            ENV_NAME="DEV"
+          fi
+
+          echo "API_BASE_URL=${API_URL}" >> $GITHUB_ENV
+          echo "ENVIRONMENT=${ENV_NAME}" >> $GITHUB_ENV
+          echo "api-base-url=${API_URL}" >> $GITHUB_OUTPUT
+
+          echo "✅ Environment: ${ENV_NAME}"
+          echo "✅ API Base URL: ${API_URL}"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -35,8 +60,31 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps
 
+      - name: Wait for API to be ready
+        run: |
+          echo "🔍 Checking if API is available at: ${{ env.API_BASE_URL }}"
+
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+
+          until curl -f -s -o /dev/null "${{ env.API_BASE_URL }}/api/v1/health" || [ $ATTEMPT -eq $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "⏳ Waiting for API... (Attempt $ATTEMPT/$MAX_ATTEMPTS)"
+            sleep 2
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "❌ API is not responding after $MAX_ATTEMPTS attempts"
+            exit 1
+          fi
+
+          echo "✅ API is ready!"
+
       - name: Run API tests
         run: pnpm run test:api
+        env:
+          API_BASE_URL: ${{ env.API_BASE_URL }}
+          ENVIRONMENT: ${{ env.ENVIRONMENT }}
 
       - name: Upload test results
         if: always()
@@ -53,3 +101,49 @@ jobs:
           name: test-results
           path: test-results/
           retention-days: 7
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Playwright API Tests Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Environment:     ${{ env.ENVIRONMENT }}"
+          echo "API Base URL:    ${{ env.API_BASE_URL }}"
+          echo "Branch:          ${{ github.head_ref || github.ref_name }}"
+          echo "Run Number:      ${{ github.run_number }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let testResults = '## 🎭 Playwright API Tests Results\n\n';
+            testResults += `**Environment:** ${{ env.ENVIRONMENT }}\n`;
+            testResults += `**API Base URL:** ${{ env.API_BASE_URL }}\n`;
+            testResults += `**Branch:** ${{ github.head_ref }}\n\n`;
+
+            // Try to read test results if available
+            try {
+              if (fs.existsSync('test-results/results.json')) {
+                const results = JSON.parse(fs.readFileSync('test-results/results.json', 'utf8'));
+                testResults += `**Total Tests:** ${results.suites.length}\n`;
+                testResults += `**Passed:** ✅ ${results.stats.expected}\n`;
+                testResults += `**Failed:** ❌ ${results.stats.unexpected}\n`;
+                testResults += `**Skipped:** ⏭️ ${results.stats.skipped}\n`;
+              }
+            } catch (error) {
+              testResults += '⚠️ Could not read detailed test results\n';
+            }
+
+            testResults += `\n📦 [Download Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: testResults
+            });
