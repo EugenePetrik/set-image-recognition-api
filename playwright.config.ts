@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 export default defineConfig({
-  testDir: './src/tests',
+  testDir: './tests',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -26,7 +26,7 @@ export default defineConfig({
   projects: [
     {
       name: 'api-tests',
-      testMatch: 'src/tests/**/*.test.ts',
+      testMatch: 'tests/**/*.test.ts',
     },
   ],
 });
