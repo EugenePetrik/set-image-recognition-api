@@ -2,9 +2,11 @@ name: Playwright API Tests
 
 on:
   push:
-    branches: [develop, release]
+    branches:
+      - develop
   pull_request:
-    branches: [develop, release]
+    branches:
+      - develop
 
 env:
   NODE_VERSION: '20.x'
