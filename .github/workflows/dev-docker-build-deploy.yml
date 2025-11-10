@@ -108,11 +108,11 @@ jobs:
           cluster: 'image-recognition-api-dev-cluster'
           wait-for-service-stability: true
 
-      - name: Deployment Summary
+      - name: Dev Deployment Summary
         if: success()
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ ECS Deployment Complete"
+          echo "✅ ECS Dev Deployment Complete"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "Cluster: image-recognition-api-dev-cluster"
           echo "Service: image-recognition-api-dev-service"
@@ -162,11 +162,11 @@ jobs:
           cluster: 'image-recognition-api-qa-cluster'
           wait-for-service-stability: true
 
-      - name: Deployment Summary
+      - name: QA Deployment Summary
         if: success()
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ ECS Deployment Complete"
+          echo "✅ ECS QA Deployment Complete"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "Cluster: image-recognition-api-qa-cluster"
           echo "Service: image-recognition-api-qa-service"

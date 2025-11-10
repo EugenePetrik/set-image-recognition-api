@@ -1,7 +1,7 @@
 name: Production Deploy
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       version:
         description: 'Docker version to deploy'
@@ -50,11 +50,11 @@ jobs:
           cluster: 'image-recognition-api-prod-cluster'
           wait-for-service-stability: true
 
-      - name: Deployment Summary
+      - name: Production Deployment Summary
         if: success()
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ ECS Deployment Complete"
+          echo "✅ ECS Production Deployment Complete"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "Cluster: image-recognition-api-prod-cluster"
           echo "Service: image-recognition-api-prod-service"
