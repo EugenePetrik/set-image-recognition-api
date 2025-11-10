@@ -69,7 +69,7 @@ variable "lambda_security_group_id" {
 variable "desired_count" {
   type        = number
   description = "Desired number of ECS tasks"
-  default     = 2
+  default     = 1
 }
 
 variable "ecr_repository_url" {

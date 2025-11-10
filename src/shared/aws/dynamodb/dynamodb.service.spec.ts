@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment */
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { DynamoDBService, ImageEntity, getLabelName, getLabelConfidence, isRawLabel } from './dynamodb.service';
@@ -138,6 +137,7 @@ describe('DynamoDBService', () => {
           secretAccessKey: 'test-secret-key',
         },
       });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(DynamoDBDocumentClient.from).toHaveBeenCalled();
     });
 

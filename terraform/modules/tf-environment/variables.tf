@@ -80,3 +80,27 @@ variable "sns_delivery_policy" {
     }
   }
 }
+
+variable "vpc_cidr_block" {
+  description = "CIDR block for the VPC"
+  type        = string
+  default     = "10.20.0.0/16"
+}
+
+variable "public_subnet_cidrs" {
+  description = "Map from availability zone suffix to CIDR"
+  type        = map(string)
+  default = {
+    a = "10.20.1.0/24"
+    b = "10.20.2.0/24"
+  }
+}
+
+variable "private_subnet_cidrs" {
+  description = "Map from availability zone suffix to CIDR"
+  type        = map(string)
+  default = {
+    a = "10.20.11.0/24"
+    b = "10.20.12.0/24"
+  }
+}

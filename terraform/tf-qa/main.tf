@@ -47,6 +47,7 @@ module "application" {
 
   vpc_id                   = module.environment.vpc_id
   public_subnet_ids        = module.environment.public_subnet_ids
+  private_subnet_ids       = module.environment.private_subnet_ids
   s3_bucket_arn            = module.environment.s3_bucket_arn
   sns_topic_arn            = module.environment.sns_topic_arn
   sqs_queue_arn            = module.environment.sqs_queue_arn

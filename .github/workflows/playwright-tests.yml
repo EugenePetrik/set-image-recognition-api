@@ -1,0 +1,178 @@
+name: Playwright API Tests
+
+on:
+  push:
+    branches: [develop, release]
+  pull_request:
+    branches: [develop, release]
+
+env:
+  NODE_VERSION: '20.x'
+  PNPM_VERSION: '8'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  api-tests:
+    name: Run API Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set API Base URL based on branch
+        id: set-api-url
+        run: |
+          BRANCH="${{ github.head_ref || github.ref_name }}"
+
+          echo "Branch: $BRANCH"
+
+          if [ "$BRANCH" = "develop" ]; then
+            API_URL="${{ secrets.API_BASE_URL_DEV }}"
+            ENV_NAME="DEV"
+          elif [ "$BRANCH" = "release" ]; then
+            API_URL="${{ secrets.API_BASE_URL_QA }}"
+            ENV_NAME="QA"
+          else
+            API_URL="${{ secrets.API_BASE_URL_DEV }}"
+            ENV_NAME="DEV"
+          fi
+
+          # Trim any whitespace
+          API_URL=$(echo "$API_URL" | xargs)
+
+          # Validate URL is not empty
+          if [ -z "$API_URL" ]; then
+            echo "❌ API_BASE_URL is empty for environment: ${ENV_NAME}"
+            echo "❌ Check if secret API_BASE_URL_${ENV_NAME} exists in GitHub Secrets"
+            exit 1
+          fi
+
+          echo "API_BASE_URL=${API_URL}" >> $GITHUB_ENV
+          echo "ENVIRONMENT=${ENV_NAME}" >> $GITHUB_ENV
+          echo "api-base-url=${API_URL}" >> $GITHUB_OUTPUT
+
+          echo "✅ Environment: ${ENV_NAME}"
+          echo "✅ API Base URL is set (${#API_URL} characters)"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+
+      - name: Run API tests
+        run: pnpm run test:api
+        env:
+          API_BASE_URL: ${{ env.API_BASE_URL }}
+          ENVIRONMENT: ${{ env.ENVIRONMENT }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload test results (JUnit)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Playwright API Tests Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Environment:     ${{ env.ENVIRONMENT }}"
+          echo "API Base URL:    ${{ env.API_BASE_URL }}"
+          echo "Branch:          ${{ github.head_ref || github.ref_name }}"
+          echo "Run Number:      ${{ github.run_number }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+
+            let testResults = '## 🎭 Playwright API Tests Results\n\n';
+            testResults += `**Environment:** ${{ env.ENVIRONMENT }}\n`;
+            testResults += `**Branch:** ${{ github.head_ref }}\n`;
+            testResults += `**Commit:** \`${{ github.event.pull_request.head.sha }}\`\n\n`;
+
+            // Try to read test results if available
+            try {
+              if (fs.existsSync('test-results/results.json')) {
+                const results = JSON.parse(fs.readFileSync('test-results/results.json', 'utf8'));
+                
+                const totalTests = results.suites.reduce((acc, suite) => acc + suite.specs.length, 0);
+                const passed = results.stats.expected || 0;
+                const failed = results.stats.unexpected || 0;
+                const skipped = results.stats.skipped || 0;
+                
+                testResults += '### 📊 Test Results\n\n';
+                testResults += `| Metric | Count |\n`;
+                testResults += `|--------|-------|\n`;
+                testResults += `| Total Tests | ${totalTests} |\n`;
+                testResults += `| ✅ Passed | ${passed} |\n`;
+                testResults += `| ❌ Failed | ${failed} |\n`;
+                testResults += `| ⏭️ Skipped | ${skipped} |\n\n`;
+                
+                if (failed > 0) {
+                  testResults += '### ❌ Failed Tests\n\n';
+                  results.suites.forEach(suite => {
+                    suite.specs.forEach(spec => {
+                      if (spec.tests.some(test => test.status === 'unexpected')) {
+                        testResults += `- \`${spec.title}\`\n`;
+                      }
+                    });
+                  });
+                  testResults += '\n';
+                }
+              } else {
+                testResults += '⚠️ Test results file not found\n\n';
+              }
+            } catch (error) {
+              console.error('Error reading test results:', error);
+              testResults += '⚠️ Could not read detailed test results\n\n';
+            }
+
+            testResults += `---\n\n`;
+            testResults += `📦 [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
+            testResults += `🔄 Triggered by: @${{ github.actor }}`;
+
+            // Post comment
+            try {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: testResults
+              });
+              console.log('✅ Comment posted successfully');
+            } catch (error) {
+              console.error('❌ Failed to post comment:', error.message);
+              core.setFailed(`Failed to post PR comment: ${error.message}`);
+            }

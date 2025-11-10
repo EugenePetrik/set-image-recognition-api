@@ -2,7 +2,7 @@
 resource "aws_security_group" "ecs_tasks" {
   count       = length(var.security_group_ids) == 0 ? 1 : 0
   name_prefix = "${var.project_name}-${var.environment}-ecs-tasks"
-  vpc_id      = data.aws_vpc.default.id
+  vpc_id      = var.vpc_id
 
   ingress {
     protocol        = "tcp"

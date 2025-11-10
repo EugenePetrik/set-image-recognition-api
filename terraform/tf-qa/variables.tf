@@ -36,7 +36,7 @@ variable "container_image_tag" {
 variable "desired_count" {
   description = "Desired number of ECS tasks"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "task_cpu" {
