@@ -33,17 +33,28 @@ output "dynamodb_table_arn" {
   value       = aws_dynamodb_table.image_recognition_table.arn
 }
 
+
 output "vpc_id" {
-  description = "VPC ID"
-  value       = data.aws_vpc.default.id
+  value       = aws_vpc.this.id
+  description = "ID of the VPC"
 }
 
 output "public_subnet_ids" {
-  description = "Public subnet IDs"
-  value       = local.public_subnet_ids
+  value       = values(aws_subnet.public)[*].id
+  description = "IDs of the public subnets"
+}
+
+output "private_subnet_ids" {
+  value       = local.private_subnet_ids
+  description = "IDs of the private subnets"
+}
+
+output "alb_security_group_id" {
+  value       = aws_security_group.alb.id
+  description = "Security group ID for the ALB"
 }
 
 output "lambda_security_group_id" {
-  description = "Security group ID for Lambda functions"
   value       = aws_security_group.lambda.id
+  description = "Security group ID for Lambda functions"
 }

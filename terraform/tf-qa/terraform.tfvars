@@ -9,7 +9,7 @@ s3_bucket_force_destroy = true # Can be set to false for safety
 # Application Configuration
 ecr_repository_url  = "354583059859.dkr.ecr.us-east-1.amazonaws.com/image-recognition-api"
 container_image_tag = "latest"
-desired_count       = 2
+desired_count       = 1
 task_cpu            = 256
 task_memory         = 512
 
